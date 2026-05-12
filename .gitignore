@@ -1,0 +1,74 @@
+# Dependencies
+node_modules/
+/.pnp
+.pnp.js
+
+# Testing
+/coverage
+
+# Next.js
+/.next/
+/out/
+
+# Production
+/build
+dist/
+
+# Misc
+.DS_Store
+*.pem
+Thumbs.db
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Vercel
+.vercel
+
+# Local screenshots (dev only, production uses Vercel Blob)
+public/screenshots/*.png
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Prisma
+prisma/.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# Internal planning and dev artifacts
+.planning/
+.conversations/
+.claude/
+.resources/
+.superpowers/
+docs/superpowers/
+
+AGENTIC_PORTFOLIO-EN-OPTIMIZER.md
+whats-next.md
+*.code-workspace
+
+# Trace-diff baselines — captured per-engineer, not committed
+/baselines/
+
+# Benchmark captures (local-only, can be large)
+.bench/

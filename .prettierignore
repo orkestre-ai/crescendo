@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+.next/
+out/
+dist/
+build/
+
+# Testing
+coverage/
+
+# Lock files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Generated files
+next-env.d.ts
+*.tsbuildinfo
+
+# Prisma migrations (preserve formatting)
+prisma/migrations/
+
+# Vercel
+.vercel/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log

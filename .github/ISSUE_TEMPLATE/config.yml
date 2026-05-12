@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/orkestre-ai/crescendo/blob/main/README.md
+    about: Check the README and setup guides before opening an issue

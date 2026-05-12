@@ -1,0 +1,84 @@
+version: 2
+updates:
+  # npm dependencies
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+      day: monday
+      time: "06:00"
+      timezone: America/Toronto
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - npm
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      # Group all minor + patch updates together to reduce PR noise.
+      # Major updates still get individual PRs so they can be reviewed carefully.
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+      # Keep AI SDK packages aligned with each other.
+      ai-sdk:
+        patterns:
+          - "@ai-sdk/*"
+          - "ai"
+      # Keep Radix UI primitives aligned.
+      radix-ui:
+        patterns:
+          - "@radix-ui/*"
+      # Keep Prisma client + CLI in lockstep.
+      prisma:
+        patterns:
+          - "prisma"
+          - "@prisma/client"
+    ignore:
+      # Framework/language majors — upgrade on our own schedule, not Dependabot's.
+      # Minor + patch updates still flow through via the minor-and-patch group.
+      - dependency-name: "next"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint-config-next"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      # Pin @types/node to the Node 22 line (project targets Node 22+).
+      - dependency-name: "@types/node"
+        versions: [">=23"]
+
+  # GitHub Actions
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+      day: monday
+      time: "06:00"
+      timezone: America/Toronto
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: chore
+      include: scope
+
+  # Docker base images
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: monthly
+      day: monday
+      time: "06:00"
+      timezone: America/Toronto
+    labels:
+      - dependencies
+      - docker
+    commit-message:
+      prefix: chore
+      include: scope

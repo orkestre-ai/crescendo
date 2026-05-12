@@ -1,0 +1,87 @@
+name: crescendo
+
+services:
+  postgres:
+    image: postgres:15.17-alpine
+    container_name: crescendo-db
+    restart: unless-stopped
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+      - -c
+      - pg_stat_statements.track=all
+      - -c
+      - pg_stat_statements.max=10000
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: crescendo
+      POSTGRES_INITDB_ARGS: '-E UTF8'
+    ports:
+      - '54320:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d crescendo']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - crescendo-network
+
+  pgadmin:
+    image: dpage/pgadmin4:9.14
+    container_name: crescendo-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@localhost.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+    ports:
+      - '50500:80'
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - crescendo-network
+
+  app:
+    build: .
+    container_name: crescendo-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - '3000:3000'
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      POSTGRES_URL: postgresql://postgres:postgres@postgres:5432/crescendo
+      POSTGRES_PRISMA_URL: postgresql://postgres:postgres@postgres:5432/crescendo
+      POSTGRES_URL_NON_POOLING: postgresql://postgres:postgres@postgres:5432/crescendo
+    volumes:
+      - screenshots:/app/public/screenshots
+      - logs:/app/logs
+    networks:
+      - crescendo-network
+
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  screenshots:
+    driver: local
+  logs:
+    driver: local
+
+networks:
+  crescendo-network:
+    driver: bridge

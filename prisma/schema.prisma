@@ -1,0 +1,559 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================================
+// CORE ENTITIES
+// ============================================================================
+
+/// Represents a fundraising/donation page tracked by the system
+model FundraisingPage {
+  id        String   @id @default(cuid())
+
+  // Engaging Networks metadata (from API)
+  enPageId        String   @unique // EN's page ID
+  name            String   // Page title
+  url             String   // Full page URL
+  enPageType      String   @default("nd") // EN's type: nd=NetDonor, ss=Single Step, etc.
+  pageType        String   @default("donation") // Our internal categorization
+  status          PageStatus @default(ACTIVE)
+  
+  // Additional EN metadata (from page details endpoint)
+  campaignId          Int?      // EN campaign ID
+  title               String?   // EN page title (may differ from name)
+  subType             String?   // EN sub-type: ECOMMERCE, etc.
+  clientId            Int?      // EN client ID
+  campaignBaseUrl     String?   // Base URL for campaign
+  campaignStatus      String?   // new, live, close, tested, block, delete
+  defaultLocale       String?   // en-US, etc.
+  template            String?   // EN template name
+  trackingParameters  String[]  // Array of tracking parameter names (facebook, email, etc.)
+  
+  // EN timestamps
+  enCreatedAt     DateTime? // When created in EN
+  enModifiedAt    DateTime? // Last modified in EN
+  lastSyncedAt    DateTime? // When we last synced from EN
+  lastSyncStatus  SyncStatus @default(PENDING) // Status of last sync attempt
+
+  // Scraped content (latest)
+  headline         String?
+  metaDescription  String?
+  ctaButtons       String[] // Array of CTA text
+  donationAmounts         Float[] // Array of donation amounts (one-time, cleaned of fee cover values)
+  monthlyDonationAmounts  Float[] // Monthly amounts from EN altList
+  hasFeeCover             Boolean  @default(false) // True if page has transaction fee cover
+  feeCoverConfig          Json?    // { type, percent, maxAmount, additionalAmount }
+  hasMonthlyGiving        Boolean  @default(false) // True if page offers monthly/recurring giving
+  currency                String?  // e.g. "CAD", "USD" from transaction.paycurrency
+  minDonationAmount       Float?   // Minimum donation amount from EN AMNT validator
+  enRuntimeConfig         Json?    // Sanitized window.EngagingNetworks snapshot (keys redacted)
+  lastScrapedAt    DateTime?
+  narrativeText    String?  @db.Text // Full narrative content for LLM context
+  metaTitle        String?  // HTML <title> tag content
+  appealText       String?  @db.Text // .body-top appeal copy from EN template
+  
+  // Page flow metadata (from pageJson in scraped HTML)
+  pageNumber       Int?     // Which page in campaign flow (1, 2, etc.)
+  pageCount        Int?     // Total pages in campaign
+  redirectPresent  Boolean? // Whether redirect is configured
+  giftProcess      Boolean? // True if transaction processing occurs on this page (typically thank you pages)
+
+  // Scraping optimization
+  requiresPlaywright Boolean @default(false)  // True if page needs Playwright (Cloudflare-blocked)
+
+  // Content change detection (sha256 of key content fields)
+  contentHash        String?   // sha256 hash for quick change comparison
+
+  // Payment gateway detection (from page HTML analysis)
+  paymentGateway   Json?     // Stores PaymentGatewayInfo object from gateway-detection.ts
+
+  // NetDonor Fundraising Metrics (from EN Public API)
+  fundraisingTotalDonated       Float?    // Total amount donated (in dollars)
+  fundraisingHighestDonation    Float?    // Highest single donation (in dollars)
+  fundraisingAverageDonation    Float?    // Average donation amount
+  fundraisingRegistrations      Int?      // Number of donation registrations
+  fundraisingSupporters         Int?      // Number of participating supporters
+  fundraisingPageHits           Int?      // Page hit count from EN
+  fundraisingLastFetchedAt      DateTime? // When NetDonor data was last fetched
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // AI context profile assignment
+  aiProfileId String? // Context profile ID, null = "general-donation"
+
+  // Relations
+  snapshots              PerformanceSnapshot[]
+  recommendations        OptimizationRecommendation[]
+  debugJobs              CollectionJob[]  // Jobs targeting this specific page (debug mode)
+  fundraisingSnapshots   FundraisingSnapshot[]
+  contentSnapshots       ContentSnapshot[]
+  insights               PageInsight[]
+  conversations          Conversation[]
+
+  @@index([status])
+  @@index([enPageId])
+  @@index([lastScrapedAt])
+  @@index([enModifiedAt])
+  @@index([campaignStatus])
+  @@index([status, campaignStatus])
+}
+
+enum PageStatus {
+  ACTIVE    // Live and being tracked
+  PAUSED    // Temporarily not tracked
+  ARCHIVED  // No longer tracked
+}
+
+enum SyncStatus {
+  PENDING   // Never synced or sync in progress
+  SUCCESS   // Last sync succeeded
+  FAILED    // Last sync failed for this page
+}
+
+/// Daily performance metrics for a specific page
+model PerformanceSnapshot {
+  id     String @id @default(cuid())
+
+  // Page reference
+  pageId String
+  page   FundraisingPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  // Date for this snapshot
+  date   DateTime @db.Date
+
+  // Google Analytics metrics
+  pageViews    Int      @default(0)
+  bounceRate   Float    @default(0) // 0.0 to 1.0
+  conversions  Int      @default(0)
+  revenue      Float    @default(0)
+  avgSessionDuration Float @default(0) // in seconds
+
+  // Calculated metrics
+  conversionRate Float @default(0) // conversions / pageViews
+
+  // Data source tracking
+  gaCollectedAt DateTime?
+  enCollectedAt DateTime?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  recommendations OptimizationRecommendation[]
+
+  @@unique([pageId, date]) // One snapshot per page per day
+  @@index([date])
+  @@index([pageId, date])
+  @@index([conversionRate]) // For sorting worst performers
+}
+
+/// AI-generated optimization recommendations
+model OptimizationRecommendation {
+  id     String @id @default(cuid())
+
+  // Relations
+  pageId     String
+  page       FundraisingPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  snapshotId String?
+  snapshot   PerformanceSnapshot? @relation(fields: [snapshotId], references: [id], onDelete: SetNull)
+
+  // Recommendation content
+  category   RecommendationCategory
+  text       String @db.Text // The actual recommendation
+  confidence Float @default(0.7) // 0.0 to 1.0
+
+  // Metadata
+  modelUsed  String @default("claude-haiku-4-5-20251001")
+  tokenCount Int?
+
+  // Status tracking
+  status     RecStatus @default(ACTIVE)
+  dismissedAt DateTime?
+  dismissedBy String? // User ID who dismissed (future)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([pageId, status])
+  @@index([category])
+  @@index([createdAt])
+}
+
+enum RecommendationCategory {
+  CONTENT   // Headline, description, copy
+  DESIGN    // Layout, colors, visuals
+  PRICING   // Donation amounts, ask strings
+  CTA       // Call-to-action buttons
+  TECHNICAL // Load time, mobile optimization
+  SOCIAL_PROOF // Testimonials, impact metrics
+}
+
+enum RecStatus {
+  ACTIVE      // Currently relevant
+  IMPLEMENTED // User acted on it
+  DISMISSED   // User dismissed
+  SUPERSEDED  // Replaced by newer recommendation
+}
+
+/// AI-generated insights from Explore and Chat modes
+model PageInsight {
+  id        String   @id @default(cuid())
+  pageId    String
+  page      FundraisingPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  mode      String   // "explore" | "chat"
+  queryKey  String?  // LEGACY: slug of pre-defined query (kept for backward compat)
+  explorationId String?  // Links to Exploration record
+  prompt    String   @db.Text
+  response  String   @db.Text
+  toolCalls Json?    // [{ tool, params, result }]
+  usage     Json     // { inputTokens, outputTokens, cost, model }
+  createdAt DateTime @default(now())
+
+  @@index([pageId, mode])
+  @@index([createdAt])
+  @@index([pageId, explorationId])
+}
+
+/// Background job for data collection
+model CollectionJob {
+  id     String @id @default(cuid())
+
+  // Job details
+  status       JobStatus @default(PENDING)
+  triggeredBy  String    // 'cron', 'user', 'api'
+  jobType      JobType   @default(SYNC)
+
+  // Progress tracking
+  totalPages      Int      @default(0)
+  processedPages  Int      @default(0)
+  progress        Int      @default(0) // 0-100
+
+  // Error tracking
+  errors Json[] @default([]) // Array of {page, error, timestamp}
+
+  // Phase tracking
+  phase  JobPhase @default(COLLECTING)
+
+  // Scrape mode for manual triggers
+  scrapeMode   String?  // 'smart' (new/modified only) or 'full' (all pages)
+
+  // Single-page debug mode
+  targetPageId String?  // If set, only process this page (debug mode)
+  targetPage   FundraisingPage? @relation(fields: [targetPageId], references: [id])
+
+  // Optimistic locking
+  processingVersion Int @default(0)
+
+  // Retry tracking
+  retryCount Int @default(0)
+
+  // Timestamps
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status])
+  @@index([startedAt])
+  @@index([targetPageId])
+}
+
+enum JobStatus {
+  PENDING              // Created, not started
+  PROCESSING           // Currently running
+  COMPLETED            // Successfully finished (zero errors)
+  COMPLETED_WITH_ERRORS // Some pages processed, some failed
+  FAILED               // No pages processed or fatal error
+  CANCELLED            // Manually stopped
+}
+
+enum JobPhase {
+  SYNCING          // Syncing pages from Engaging Networks
+  SCRAPING         // Scraping page content
+  COLLECTING       // Fetching GA4 metrics + fundraising data
+  FILLING_MISSING  // Patching incomplete content snapshots
+  GENERATING_RECS  // Creating AI recommendations (manual jobs only)
+  FINALIZING       // Cleanup, calculations
+}
+
+enum JobType {
+  SYNC           // Unified pipeline: sync → scrape → collect → fill → finalize
+  MANUAL_SCRAPE  // Single-page manual scrape
+  MANUAL_RECS    // Single-page manual recommendation generation
+  BACKFILL       // GA4 historical backfill
+}
+
+// ============================================================================
+// SETTINGS
+// ============================================================================
+
+/// Application settings (singleton pattern - single record per installation)
+model AppSettings {
+  id        String   @id @default("singleton") // Fixed ID ensures single record
+
+  // Engaging Networks Configuration
+  enApiKeyEncrypted   String?   // AES-256-GCM encrypted, format: iv:authTag:ciphertext
+  enBaseUrl           String    @default("https://ca.engagingnetworks.app/ens/service")
+  enConnectionStatus  ConnectionStatus @default(UNKNOWN)
+  enLastTestedAt      DateTime?
+  enLastTestError     String?   // Error message if last test failed
+  enPageCount         Int?      // Cached count from last successful connection
+  localPageCount      Int       @default(0) // Cached count of local FundraisingPage rows, refreshed at job completion
+
+  // Refresh Configuration
+  refreshSchedule     RefreshSchedule @default(ON_DEMAND)
+  lastRefreshAt       DateTime?
+  lastRefreshJobId    String?   // Reference to CollectionJob
+
+  // Sync Behavior Toggles
+  syncContentScrape       Boolean @default(true)   // Scrape new/modified pages
+  syncCreateSnapshots     Boolean @default(true)   // Create new content snapshots
+  syncFundraisingData     Boolean @default(true)   // Update GA4 + EN fundraising data
+  syncFillGaps            Boolean @default(true)   // Fill pages missing depth data
+  syncIncludeNonLive      Boolean @default(false)  // Include new/tested pages in sync (off = live only)
+
+  // Content Depth Toggles (what to capture during scraping)
+  depthPageContent        Boolean @default(true)   // Page text content (always on)
+  depthScreenshots        Boolean @default(true)   // Desktop + mobile screenshots
+  depthConsoleErrors      Boolean @default(true)   // Console errors, JS exceptions
+  depthDonationAmounts    Boolean @default(true)   // Donation amount extraction
+
+  // Content scraping configuration
+  scrapingEnabled         Boolean @default(true)      // Master on/off (replaces ScrapingFrequency enum)
+  stalenessThresholdDays  Int     @default(14)         // Days before forced re-scrape
+  scrapingTimeoutMs       Int     @default(30000)
+
+  // AI Configuration
+  aiModel             String    @default("claude-haiku-4-5-20251001")
+  aiSystemPrompt      String?   @db.Text  // Custom system prompt (null = use default)
+  aiExplorationSystemPrompt String? @db.Text  // Custom exploration system prompt (null = use default)
+  aiUserPromptTemplate String?  @db.Text  // Custom user prompt template (null = use default)
+  aiContextProfiles Json?    // Array of { id, name, description, context, isDefault }
+  aiChatModel       String   @default("claude-sonnet-4-6")
+  aiChatMaxContext   Int      @default(50000)
+  aiChatMaxTokens    Int      @default(4096)
+
+  // EN Public API (encrypted token + region, entered via Settings UI)
+  enPublicTokenEncrypted         String?
+  enRegion                       String    @default("ca")  // 'us' or 'ca'
+  enPublicConnectionStatus       ConnectionStatus @default(UNKNOWN)
+  enPublicLastTestedAt           DateTime?
+  enPublicLastTestError          String?
+
+  // GA4 credentials (encrypted, entered via Settings UI)
+  ga4PropertyIdEncrypted         String?
+  ga4ServiceAccountKeyEncrypted  String?
+
+  // Anthropic API key (encrypted, entered via Settings UI)
+  anthropicApiKeyEncrypted       String?
+
+  // Multi-provider AI configuration (Phase 8)
+  aiOpenaiKeyEncrypted     String?   // OpenAI API key (AES-256-GCM encrypted)
+  aiGoogleKeyEncrypted     String?   // Google AI API key (AES-256-GCM encrypted)
+  aiOllamaBaseUrl          String?   // Ollama endpoint (plain text, not a secret)
+
+  // Per-surface model selection
+  aiChatProvider           String    @default("anthropic")
+  aiChatModelId            String    @default("claude-sonnet-4-6")
+  aiExploreProvider        String    @default("anthropic")
+  aiExploreModelId         String    @default("claude-sonnet-4-6")
+  aiRecsProvider           String    @default("anthropic")
+  aiRecsModelId            String    @default("claude-haiku-4-5-20251001")
+
+  // Model lists per provider (JSON: { anthropic: [...], openai: [...], google: [...], ollama: [...] })
+  aiModelLists             Json?
+
+  // Chat & Tools settings
+  aiChatSystemPrompt       String?   @db.Text  // Custom chat system prompt (null = use default)
+  aiOrgSearchDomains       String[]  @default([]) // Domain allowlist for org_search tool (empty = allow all)
+
+  // Google Analytics Configuration
+  ga4ConnectionStatus ConnectionStatus @default(UNKNOWN)
+  ga4LastTestedAt     DateTime?
+  ga4LastTestError    String?
+
+  // Reporting Configuration
+  reportingCurrency   String    @default("CAD")  // USD, CAD, GBP, EUR, AUD
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([refreshSchedule])
+}
+
+enum ConnectionStatus {
+  UNKNOWN      // Never tested
+  CONNECTED    // Last test successful
+  DISCONNECTED // Last test failed
+  TESTING      // Currently testing
+}
+
+enum RefreshSchedule {
+  ON_DEMAND    // Manual only
+  HOURLY       // Every hour
+  DAILY        // Once per day
+  WEEKLY       // Once per week
+}
+
+
+// ============================================================================
+// FUNDRAISING SNAPSHOTS (Period-based metrics)
+// ============================================================================
+
+/// Period type for fundraising snapshots
+enum PeriodType {
+  LAST_7_DAYS   // Current 7-day period (today - 6 days to today)
+  PREV_7_DAYS   // Previous 7-day period (today - 13 days to today - 7 days)
+  LAST_30_DAYS  // Last 30-day period (today - 29 days to today)
+  LIFETIME      // All-time totals since campaign creation
+}
+
+/// Period-based fundraising snapshot from EN Public API
+model FundraisingSnapshot {
+  id        String   @id @default(cuid())
+
+  // Page reference
+  pageId    String
+  page      FundraisingPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  // Period identification
+  periodType    PeriodType
+  periodStart   DateTime    @db.Date
+  periodEnd     DateTime    @db.Date
+
+  // Donation metrics (in reporting currency)
+  totalAmount       Float     @default(0)
+  donationCount     Int       @default(0)
+  singleCount       Int       @default(0)
+  singleAmount      Float     @default(0)
+  recurringCount    Int       @default(0)
+  recurringAmount   Float     @default(0)
+
+  // For lifetime only (from NetDonor)
+  highestDonation   Float?
+  averageDonation   Float?
+  supporters        Int?
+
+  // Metadata
+  currency          String    @default("CAD")
+  fetchedAt         DateTime  @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pageId, periodType, periodStart, periodEnd])
+  @@index([pageId, periodType])
+  @@index([fetchedAt])
+}
+
+// ============================================================================
+// CONTENT SNAPSHOTS (Versioned page content captures)
+// ============================================================================
+
+/// Versioned content snapshot captured when page content changes
+model ContentSnapshot {
+  id            String   @id @default(cuid())
+
+  // Page reference
+  pageId        String
+  page          FundraisingPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  // Content hash (sha256 of key user-facing fields)
+  contentHash   String?           // sha256 hash that triggered this snapshot (nullable for legacy)
+
+  // Extracted content
+  metaTitle     String?           // HTML <title> tag
+  appealText    String?  @db.Text // .body-top copyblock text
+  narrativeText String?  @db.Text // Broader page text extraction
+  // Raw rendered HTML captured at scrape time — source of truth for audit checks.
+  // Nullable so pre-migration rows remain valid; the audit tool skips HTML-based checks when missing.
+  rawHtml       String?  @db.Text
+
+  // Visual snapshots
+  screenshotUrl       String?           // Desktop screenshot URL
+  mobileScreenshotUrl String?           // Mobile screenshot URL (390px viewport)
+
+  // Page diagnostics (console errors, failed requests, timing)
+  diagnostics         Json?             // PageDiagnostics JSON object
+
+  // Snapshot lifetime (date-range tracking)
+  validFrom     DateTime @default(now()) // When this version became active
+  validTo       DateTime?               // NULL = currently active; backfilled when superseded
+
+  // Legacy metadata
+  enModifiedAt  DateTime?         // EN's page modification timestamp (informational only)
+  capturedAt    DateTime @default(now())
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([pageId, contentHash])
+  @@index([pageId])
+  @@index([capturedAt])
+  @@index([pageId, validFrom])
+}
+
+// ============================================================================
+// CONFIGURABLE EXPLORATIONS
+// ============================================================================
+
+/// User-configurable AI exploration queries (replaces hardcoded QUICK_QUERIES)
+model Exploration {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  description  String
+  prompt       String   @db.Text
+  icon         String   @default("BarChart3")
+  enabled      Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  isDefault    Boolean  @default(false)
+  enabledTools String[]                    // PostgreSQL text[] array
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([enabled, sortOrder])
+}
+
+// ============================================================================
+// CHAT CONVERSATIONS
+// ============================================================================
+
+/// Persistent chat conversations linked to fundraising pages
+model Conversation {
+  id        String   @id @default(cuid())
+  pageId    String
+  page      FundraisingPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  title     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  messages  Message[]
+
+  @@index([pageId, updatedAt])
+}
+
+/// Individual messages within a conversation
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String       // "user" | "assistant"
+  content        String       @db.Text
+  toolCalls      Json?
+  usage          Json?
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
+}

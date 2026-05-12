@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en-CA">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Oxfam Canada | Oxfam Canada</title>
+    <!-- Captured from https://secured.oxfam.ca/page/179896/donate/1?mode=DEMO -->
+    <!-- Sensitive values (Stripe keys, account IDs, VGS vault/route IDs) have been REDACTED -->
+    <!-- Gateway data injected as inline script to represent headless browser extraction -->
+    <link
+      rel="stylesheet"
+      href="https://aaf1a18515da0e792f78-c27fdabe952dfc357fe25ebf5c8897ee.ssl.cf5.rackcdn.com/2110/engrid.min.css"
+    />
+    <script type="text/javascript">
+      var defined = function (v) {
+        return typeof v !== 'undefined';
+      };
+      var pageJson = {
+        clientId: 2110,
+        campaignPageId: 179896,
+        campaignId: 413847,
+        pageNumber: 1,
+        pageCount: 2,
+        pageName: 'Split Test CRO - 2024 Tax Receipt Donate (Main)',
+        pageType: 'donation',
+        externalReference6: '7011I000000QXp3QAG',
+        locale: 'en-CA',
+        redirectPresent: false,
+        giftProcess: false,
+      };
+    </script>
+  </head>
+  <body
+    class="en--page-179896"
+    data-engrid-page-type="donation"
+    data-engrid-payment-type-option-card="true"
+    data-engrid-payment-type-option-paypal="false"
+  >
+    <div class="body-content">
+      <form method="post" class="en__component en__component--widgetblock">
+        <div
+          class="en__field en__field--payment en__field--585240 en__field--paymenttype en__mandatory"
+        >
+          <label for="en__field_transaction_paymenttype">Payment Type</label>
+          <select
+            id="en__field_transaction_paymenttype"
+            name="transaction.paymenttype"
+            class="en__field__input en__field__input--select"
+          >
+            <option value="Visa">Visa</option>
+            <option value="Mastercard">Mastercard</option>
+            <option value="Amex">AMEX</option>
+          </select>
+        </div>
+
+        <div
+          id="en__digitalWallet__stripeButtons"
+          class="en__digitalWallet__button"
+          style="display: block"
+        ></div>
+
+        <div class="en__field en__field--donationAmt">
+          <div class="en__field__element en__field__element--radio">
+            <input
+              type="radio"
+              name="transaction.donationAmt"
+              value="35"
+              id="en__field_transaction_donationAmt0"
+            />
+            <input
+              type="radio"
+              name="transaction.donationAmt"
+              value="50"
+              id="en__field_transaction_donationAmt1"
+            />
+            <input
+              type="radio"
+              name="transaction.donationAmt"
+              value="100"
+              id="en__field_transaction_donationAmt2"
+            />
+            <input
+              type="radio"
+              name="transaction.donationAmt"
+              value="250"
+              id="en__field_transaction_donationAmt3"
+            />
+          </div>
+        </div>
+
+        <input type="submit" class="en__submit" value="Donate Now" />
+      </form>
+    </div>
+
+    <!-- EN payment gateway configuration (from window.EngagingNetworks at runtime) -->
+    <script type="text/javascript">
+      window.EngagingNetworks = window.EngagingNetworks || {};
+      window.EngagingNetworks.paymentGateways = [
+        {
+          hasClientSecret: false,
+          country: 'CA',
+          accountId: 'acct_REDACTED',
+          currency: 'any',
+          gateway: 'stripe',
+          key: 'pk_live_REDACTED',
+        },
+      ];
+      window.EngagingNetworks.vault = {
+        environment: 'live',
+        routeId: 'ROUTE_ID_REDACTED',
+        vaultId: 'VAULT_ID_REDACTED',
+      };
+    </script>
+  </body>
+</html>

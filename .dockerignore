@@ -1,0 +1,11 @@
+node_modules
+.next
+.git
+logs
+public/screenshots
+.env
+.env.local
+*.md
+.conversations
+.planning
+docs
