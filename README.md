@@ -16,13 +16,12 @@ Works with Claude, Gemini, OpenAI, or local models through Ollama.
 
 # Crescendo
 
+[![CI](https://github.com/orkestre-ai/crescendo/actions/workflows/ci.yml/badge.svg)](https://github.com/orkestre-ai/crescendo/actions/workflows/ci.yml)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.6.0-orange.svg)](CHANGELOG.md)
 [![Node](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)](package.json)
 [![Next.js](https://img.shields.io/badge/Next.js-15.5-black.svg)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
-
-<!-- VERIFY: replace badge URLs once repo is public and CI is wired up; add a build-status badge from GitHub Actions. -->
 
 ---
 
