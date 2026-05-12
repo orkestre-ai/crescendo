@@ -53,8 +53,8 @@ For schema validation only (no DB changes), run `npm run db:check`.
 | `npm run type-check` | TypeScript type checking (`tsc --noEmit`) |
 | `npm run startup` | Start everything (PostgreSQL, Next.js, Prisma Studio) |
 | `npm run shutdown` | Stop all services |
-| `npm run logs` | Tail structured app logs |
-| `npm run logs:errors` | Search logs for errors |
+| `npm run logs:tail` | Tail structured app logs |
+| `npm run logs:trace` | Trace a specific job/request through logs |
 
 ## Coding Standards
 
