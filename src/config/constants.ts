@@ -96,6 +96,10 @@ export const GITHUB_REPO_API_URL =
   'https://api.github.com/repos/orkestre-ai/crescendo';
 export const GITHUB_RELEASES_URL =
   'https://github.com/orkestre-ai/crescendo/releases';
+export const GITHUB_ISSUES_URL =
+  'https://github.com/orkestre-ai/crescendo/issues';
+export const GITHUB_DISCUSSIONS_URL =
+  'https://github.com/orkestre-ai/crescendo/discussions';
 
 // Version Check
 export const VERSION_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
