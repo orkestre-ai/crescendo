@@ -80,57 +80,93 @@ export function AboutDialog({ children }: AboutDialogProps) {
           </TabsList>
 
           {/* About Tab */}
-          <TabsContent value="about" className="space-y-4 pt-2">
-            <div className="text-center">
-              <h3 className="font-[family-name:var(--font-brand)] text-2xl font-black italic">
-                Crescendo
-              </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                v{process.env.NEXT_PUBLIC_APP_VERSION}
-              </p>
-            </div>
-            <p className="text-sm text-muted-foreground text-center leading-relaxed">
-              Fundraising page optimizer for Engaging Networks. Syncs donation
-              pages, collects analytics, scrapes content, and generates AI
-              optimization recommendations.
-            </p>
-            <div className="rounded-md border border-border/50 bg-muted/30 px-3 py-2.5 text-center">
-              <p className="text-xs text-muted-foreground">
-                Licensed under the GNU Affero General Public License v3.0
-              </p>
-            </div>
-            <div className="flex flex-wrap justify-center gap-2">
-              <a
-                href={GITHUB_REPO_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Button variant="outline" size="sm" className="gap-1.5 text-xs">
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  View on GitHub
-                </Button>
-              </a>
-              <a
-                href={GITHUB_ISSUES_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Button variant="outline" size="sm" className="gap-1.5 text-xs">
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  Report an issue
-                </Button>
-              </a>
-              <a
-                href={GITHUB_DISCUSSIONS_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Button variant="outline" size="sm" className="gap-1.5 text-xs">
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  Discussions
-                </Button>
-              </a>
-            </div>
+          <TabsContent value="about" className="pt-2">
+            <ScrollArea className="max-h-[60vh]">
+              <div className="space-y-4 pr-3">
+                <div className="text-center">
+                  <h3 className="font-[family-name:var(--font-brand)] text-2xl font-black italic">
+                    Crescendo
+                  </h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    v{process.env.NEXT_PUBLIC_APP_VERSION}
+                  </p>
+                </div>
+                <p className="text-sm text-muted-foreground text-center leading-relaxed">
+                  Fundraising page optimizer for Engaging Networks. Syncs
+                  donation pages, collects analytics, scrapes content, and
+                  generates AI optimization recommendations.
+                </p>
+                <div className="rounded-md border border-border/50 bg-muted/30 px-3 py-2.5 text-center">
+                  <p className="text-xs text-muted-foreground">
+                    Licensed under the GNU Affero General Public License v3.0
+                  </p>
+                </div>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <a
+                    href={GITHUB_REPO_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-xs"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      View on GitHub
+                    </Button>
+                  </a>
+                  <a
+                    href={GITHUB_ISSUES_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-xs"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Report an issue
+                    </Button>
+                  </a>
+                  <a
+                    href={GITHUB_DISCUSSIONS_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-xs"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Discussions
+                    </Button>
+                  </a>
+                </div>
+                <div className="pt-5 mt-1 border-t border-border/50">
+                  <div className="flex flex-col items-center text-center gap-3">
+                    <div className="rounded border border-border/40 bg-background p-1 shadow-sm">
+                      <Image
+                        src="/about/george-backpack.png"
+                        alt="A pencil sketch of a backpack, in memory of George Irish"
+                        width={72}
+                        height={72}
+                        className="rounded-sm"
+                      />
+                    </div>
+                    <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+                      Dedication
+                    </p>
+                    <p className="font-serif italic text-sm leading-relaxed text-muted-foreground/90 max-w-[22rem]">
+                      In memory of George Irish, who inspired us to build the
+                      world we want for each other, together.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </ScrollArea>
           </TabsContent>
 
           {/* Developer Tab */}
