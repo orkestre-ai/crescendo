@@ -110,6 +110,9 @@
     "rebrowser-playwright": "^1.52.0"
   },
   "overrides": {
-    "postcss": "^8.5.14"
+    "postcss": "^8.5.14",
+    "@prisma/dev": {
+      "@hono/node-server": "^1.19.13"
+    }
   }
 }
