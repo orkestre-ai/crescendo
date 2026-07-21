@@ -72,3 +72,7 @@ whats-next.md
 
 # Benchmark captures (local-only, can be large)
 .bench/
+.gstack/
+
+# Internal planning docs — never publish to the public repo
+/specs/
