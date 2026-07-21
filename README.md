@@ -16,6 +16,9 @@ Works with Claude, Gemini, OpenAI, or local models through Ollama.
 
 # Crescendo
 
+**[crescendo.orkestre.ai](https://crescendo.orkestre.ai)** — what it is and why it exists.
+
+[![Website](https://img.shields.io/badge/site-crescendo.orkestre.ai-8b5cf6.svg)](https://crescendo.orkestre.ai)
 [![CI](https://github.com/orkestre-ai/crescendo/actions/workflows/ci.yml/badge.svg)](https://github.com/orkestre-ai/crescendo/actions/workflows/ci.yml)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.6.0-orange.svg)](CHANGELOG.md)
