@@ -1,0 +1,797 @@
+/* ==========================================================================
+   Crescendo microsite — design tokens + base
+   Tokens are copied verbatim from src/app/globals.css (the app is the
+   source of truth). Light theme is the canvas; dark tokens live under
+   the .ink scope (terminal chips + the ff finale band only).
+   ========================================================================== */
+
+/* ---------- Self-hosted fonts (no external requests) ---------- */
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/space-grotesk-latin-400-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../fonts/space-grotesk-latin-500-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../fonts/space-grotesk-latin-700-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/jetbrains-mono-latin-400-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('../fonts/jetbrains-mono-latin-600-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Playfair Display';
+  font-style: italic;
+  font-weight: 800;
+  font-display: swap;
+  src: url('../fonts/playfair-display-latin-800-italic.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Playfair Display';
+  font-style: italic;
+  font-weight: 900;
+  font-display: swap;
+  src: url('../fonts/playfair-display-latin-900-italic.woff2') format('woff2');
+}
+
+/* ---------- Tokens (verbatim from src/app/globals.css :root) ---------- */
+:root {
+  --radius: 0.5rem;
+  --background: oklch(0.96 0.006 270);
+  --foreground: oklch(0.4 0.022 270);
+  --card: oklch(0.93 0.008 270);
+  --card-foreground: oklch(0.4 0.022 270);
+  --primary: oklch(0.49 0.26 300);
+  --primary-foreground: oklch(0.96 0.006 270);
+  --secondary: oklch(0.85 0.01 270);
+  --secondary-foreground: oklch(0.4 0.022 270);
+  --muted: oklch(0.85 0.01 270);
+  --muted-foreground: oklch(0.52 0.017 270);
+  --accent: oklch(0.8 0.01 270);
+  --accent-foreground: oklch(0.4 0.022 270);
+  --success: oklch(0.61 0.17 142);
+  --success-foreground: oklch(0.96 0.006 270);
+  --border: oklch(0.8 0.01 270);
+  --ring: oklch(0.49 0.26 300);
+  --shadow-sm:
+    0px 1px 3px 0px oklch(0.4 0.022 270 / 0.05), 0px 1px 2px -1px oklch(0.4 0.022 270 / 0.05);
+  --shadow-md:
+    0px 2px 4px -1px oklch(0.4 0.022 270 / 0.06), 0px 4px 6px -1px oklch(0.4 0.022 270 / 0.06);
+  --shadow-lg:
+    0px 4px 6px -2px oklch(0.4 0.022 270 / 0.06), 0px 10px 15px -3px oklch(0.4 0.022 270 / 0.06);
+  --tracking-normal: 0.01em;
+
+  --font-sans: 'Space Grotesk', 'Avenir Next', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --font-brand: 'Playfair Display', Didot, Georgia, 'Times New Roman', serif;
+}
+
+/* Ink moments — verbatim from src/app/globals.css .dark (terminal chips + ff finale) */
+.ink {
+  --background: oklch(0.24 0.019 281);
+  --foreground: oklch(0.87 0.025 269);
+  --card: oklch(0.21 0.019 281);
+  --card-foreground: oklch(0.87 0.025 269);
+  --primary: oklch(0.76 0.13 300);
+  --primary-foreground: oklch(0.17 0.019 281);
+  --muted-foreground: oklch(0.6 0.02 277);
+  --success: oklch(0.85 0.1 145);
+  --border: oklch(0.46 0.017 280);
+  --ring: oklch(0.76 0.13 300);
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* ---------- Base ---------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-weight: 400;
+  letter-spacing: var(--tracking-normal);
+  line-height: 1.6;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.wordmark {
+  font-family: var(--font-brand);
+  font-style: italic;
+  font-weight: 900;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+  border-radius: calc(var(--radius) - 4px);
+}
+
+/* ==========================================================================
+   Layout — one page, five movements. The type itself crescendos:
+   dynamics marks and headings grow movement by movement.
+   ========================================================================== */
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -3rem;
+  z-index: 10;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius);
+  text-decoration: none;
+  font-weight: 500;
+  transition: top 0.15s ease;
+}
+.skip-link:focus {
+  top: 1rem;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* ---------- Hero ---------- */
+.hero {
+  position: relative;
+  min-height: 92vh;
+  min-height: 92svh;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.hero canvas,
+.hero-lattice {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.hero-lattice {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  align-content: center;
+  justify-items: center;
+  row-gap: 1.4rem;
+  padding: 2rem;
+  pointer-events: none;
+}
+.hero-lattice span {
+  font-family: var(--font-mono);
+  color: var(--primary);
+  font-size: 1.1rem;
+  opacity: 0.4;
+}
+.hero-inner {
+  position: relative;
+  z-index: 1;
+  max-width: 880px;
+  padding: 4rem 1.5rem 5rem;
+  text-align: center;
+}
+.hero .eyebrow {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--primary);
+  margin: 0 0 1.25rem;
+}
+.brand {
+  font-family: var(--font-brand);
+  font-style: italic;
+  font-weight: 900;
+  font-size: clamp(2.6rem, 7vw, 4.2rem);
+  line-height: 1.1;
+  margin: 0 0 1.5rem;
+  color: var(--foreground);
+}
+.brand .hairpin {
+  font-style: normal;
+  color: var(--primary);
+}
+.hero h1 {
+  font-weight: 700;
+  font-size: clamp(1.55rem, 4vw, 2.5rem);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  margin: 0 0 1rem;
+}
+.hero h1 .line {
+  display: block;
+}
+.hero .sub {
+  font-size: clamp(0.98rem, 2vw, 1.1rem);
+  color: var(--muted-foreground);
+  max-width: 56ch;
+  margin: 0 auto 2rem;
+}
+.cta-row {
+  display: flex;
+  gap: 0.85rem;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.btn {
+  display: inline-block;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 0.95rem;
+  border-radius: var(--radius);
+  padding: 0.7rem 1.4rem;
+  text-decoration: none;
+  border: 1px solid transparent;
+}
+.btn.primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.btn.ghost {
+  background: transparent;
+  color: var(--foreground);
+  border-color: var(--border);
+}
+.chip {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  border-radius: var(--radius);
+  padding: 0.7rem 1.1rem;
+}
+.chip.ink {
+  border: 1px solid var(--border);
+}
+
+/* ---------- Movements ---------- */
+main {
+  display: block;
+}
+.movement {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: clamp(3.5rem, 9vh, 6.5rem) 1.5rem;
+}
+.dyn-mark {
+  display: flex;
+  align-items: baseline;
+  gap: 0.8rem;
+  margin: 0 0 0.75rem;
+}
+.dyn {
+  font-family: var(--font-brand);
+  font-style: italic;
+  font-weight: 900;
+  color: var(--primary);
+  line-height: 1;
+}
+.dyn-label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--muted-foreground);
+}
+.movement h2 {
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  margin: 0 0 1rem;
+  max-width: 24ch;
+}
+.movement > p,
+.movement .body {
+  max-width: 64ch;
+  margin: 0 0 1.25rem;
+}
+
+/* the crescendo, encoded in the type scale */
+.m-pp .dyn { font-size: 1.5rem; }
+.m-pp h2 { font-size: clamp(1.35rem, 3vw, 1.7rem); }
+.m-mp .dyn { font-size: 1.9rem; }
+.m-mp h2 { font-size: clamp(1.5rem, 3.4vw, 1.95rem); }
+.m-mf .dyn { font-size: 2.3rem; }
+.m-mf h2 { font-size: clamp(1.6rem, 3.8vw, 2.2rem); }
+.m-f .dyn { font-size: 2.8rem; }
+.m-f h2 { font-size: clamp(1.7rem, 4.2vw, 2.5rem); }
+.m-sotto .dyn { font-size: 1.35rem; }
+.m-sotto h2 { font-size: clamp(1.3rem, 2.8vw, 1.6rem); }
+.m-ff .dyn { font-size: clamp(3.5rem, 9vw, 6rem); }
+.m-ff h2 { font-size: clamp(2rem, 5.5vw, 3.2rem); }
+
+/* pp — quiet, text-only vignettes */
+.vignettes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 2.25rem 3rem;
+  margin-top: 2.5rem;
+}
+.vignettes h3 {
+  font-size: 1.02rem;
+  font-weight: 700;
+  margin: 0 0 0.4rem;
+}
+.vignettes p {
+  margin: 0;
+  font-size: 0.94rem;
+  color: var(--muted-foreground);
+}
+
+/* screenshots framed in a quiet browser-chrome mockup */
+.shot-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  padding: 0;
+  margin: 2.25rem 0 0;
+  overflow: hidden;
+}
+.shot-card .chrome {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+}
+.shot-card .chrome i {
+  display: block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--border);
+}
+.shot-card .chrome .addr {
+  margin-left: 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  color: var(--foreground);
+}
+.shot-card img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: none;
+  border-radius: 0;
+}
+.shot-card figcaption {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--foreground);
+  padding: 0.7rem 0.9rem;
+  border-top: 1px solid var(--border);
+}
+
+/* f — model picker */
+.model-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.85rem;
+  margin-top: 2rem;
+}
+.model-picker .model {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  box-shadow: var(--shadow-sm);
+}
+.model-picker .model strong {
+  display: block;
+  font-size: 0.95rem;
+  margin-bottom: 0.2rem;
+}
+.model-picker .model span {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--foreground);
+}
+.model-picker .model.local-model {
+  border-color: var(--success);
+}
+
+/* f — the three AI surfaces */
+.modalities {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 0.85rem;
+  margin: 2rem 0;
+}
+.modalities .mode {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.2rem;
+  box-shadow: var(--shadow-sm);
+}
+.modalities .mode .k {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+  color: var(--primary);
+  margin-bottom: 0.4rem;
+}
+.modalities .mode strong {
+  display: block;
+  font-size: 1.02rem;
+  margin-bottom: 0.3rem;
+}
+.modalities .mode p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--foreground);
+}
+.callout-make {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.4rem;
+  margin: 2rem 0;
+  max-width: 68ch;
+}
+.callout-make strong {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+.callout-make p {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--foreground);
+}
+
+/* sotto voce — security evidence list */
+.m-sotto {
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.evidence {
+  list-style: none;
+  padding: 0;
+  margin: 2.25rem 0 0;
+  display: grid;
+  gap: 1.75rem;
+}
+.evidence li {
+  max-width: 68ch;
+}
+.evidence strong {
+  display: block;
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+.evidence p {
+  margin: 0 0 0.35rem;
+  font-size: 0.94rem;
+  color: var(--muted-foreground);
+}
+.evidence .src {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+.evidence .src a {
+  color: var(--primary);
+  text-decoration: none;
+}
+.evidence .src a:hover {
+  text-decoration: underline;
+}
+
+/* ff — the finale inverts to ink: the loudest bar on the darkest ground */
+.finale {
+  margin-top: clamp(3rem, 8vh, 5rem);
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 50% 100%, color-mix(in oklab, var(--primary) 13%, transparent), transparent 62%),
+    var(--background);
+}
+.finale-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.finale-lattice {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(14, 1fr);
+  align-content: space-evenly;
+  justify-items: center;
+  padding: 1.5rem;
+  pointer-events: none;
+}
+.finale-lattice span {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  color: var(--primary);
+  opacity: 0.07;
+}
+.finale .movement,
+.finale footer {
+  position: relative;
+}
+.finale .movement {
+  text-align: center;
+  padding-top: clamp(4.5rem, 12vh, 8rem);
+  padding-bottom: clamp(4.5rem, 12vh, 8rem);
+}
+.finale .dyn-mark {
+  justify-content: center;
+}
+.finale h2 {
+  margin-left: auto;
+  margin-right: auto;
+}
+.finale .body {
+  margin-left: auto;
+  margin-right: auto;
+  color: var(--foreground);
+}
+.quickstart {
+  background: var(--card);
+  color: var(--card-foreground);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin: 2rem auto;
+  max-width: 34rem;
+  text-align: left;
+  overflow: hidden;
+}
+.quickstart .chrome {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+}
+.quickstart .chrome i {
+  display: block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--border);
+}
+.quickstart .chrome .addr {
+  margin-left: 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  color: var(--foreground);
+}
+.quickstart pre {
+  margin: 0;
+  padding: 1rem 1.4rem;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  line-height: 1.7;
+}
+.quickstart code {
+  font-family: inherit;
+}
+.finale .cta-row {
+  margin-top: 2rem;
+}
+.finale .license {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--foreground);
+  margin: 2.25rem auto 0;
+}
+.finale .credit {
+  font-size: 0.92rem;
+  color: var(--foreground);
+  margin: 0.5rem auto 0;
+}
+.finale .credit a {
+  color: var(--primary);
+}
+.finale .credit a {
+  color: var(--primary);
+}
+footer {
+  border-top: 1px solid var(--border);
+  padding: 2.5rem 1.5rem 2rem;
+  /* solid ground — the footer sits outside the animation field */
+  background: var(--card);
+}
+.foot-inner {
+  max-width: 960px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 2rem 3rem;
+  flex-wrap: wrap;
+  text-align: left;
+}
+.foot-mark {
+  font-size: 1.3rem;
+  margin: 0 0 0.3rem;
+}
+.foot-mark .hairpin {
+  color: var(--primary);
+}
+.foot-tag {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.03em;
+  color: var(--foreground);
+  max-width: 34ch;
+  margin: 0;
+}
+.foot-links {
+  display: flex;
+  gap: 1.75rem;
+  flex-wrap: wrap;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  padding-top: 0.4rem;
+}
+.foot-links a {
+  color: var(--foreground);
+  text-decoration: none;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.15rem;
+}
+.foot-links a:hover {
+  border-bottom-color: var(--primary);
+}
+.foot-fine {
+  max-width: 960px;
+  margin: 2rem auto 0;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  color: var(--foreground);
+  text-align: left;
+}
+
+/* ---------- Scroll reveals (added by JS only; no-JS stays visible) ---------- */
+.reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.reveal.shown {
+  opacity: 1;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* ---------- Floating field tuner (draft-review tool) ---------- */
+.tuner {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 60;
+  width: 260px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--foreground);
+}
+.tuner summary {
+  cursor: pointer;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--primary);
+  user-select: none;
+}
+.tuner-body {
+  padding: 0.25rem 0.9rem 0.8rem;
+  max-height: 62vh;
+  overflow-y: auto;
+  display: grid;
+  gap: 0.55rem;
+}
+.tuner-row {
+  display: grid;
+  gap: 0.15rem;
+}
+.tuner-row > span {
+  display: flex;
+  justify-content: space-between;
+  letter-spacing: 0.04em;
+}
+.tuner-row output {
+  color: var(--primary);
+}
+.tuner-row input[type='range'] {
+  width: 100%;
+  accent-color: var(--primary);
+  margin: 0;
+}
+.tuner-row select {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  background: var(--background);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  padding: 0.25rem 0.4rem;
+}
+.tuner-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+.tuner-actions button {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  background: var(--background);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  padding: 0.4rem 0.5rem;
+  cursor: pointer;
+}
+.tuner-actions button:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+@media (max-width: 720px) {
+  .tuner {
+    width: 220px;
+  }
+}

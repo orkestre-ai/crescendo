@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crescendo by Orkestre AI — AI-powered optimization for nonprofit fundraising pages</title>
+<meta name="description" content="Open-source fundraising page optimizer for Engaging Networks. Crescendo syncs your donation pages, layers in GA4 and NetDonor data, and asks the AI model you choose — cloud or local — what to improve.">
+<link rel="canonical" href="https://crescendo.orkestre.ai/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://crescendo.orkestre.ai/">
+<meta property="og:title" content="Crescendo — every donation page has a signal.">
+<meta property="og:description" content="Open-source fundraising page optimizer for Engaging Networks. Syncs your pages, layers in GA4 and NetDonor data, and asks the AI model you choose what to improve.">
+<meta property="og:image" content="https://crescendo.orkestre.ai/img/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Crescendo — every donation page has a signal.">
+<meta name="twitter:description" content="Open-source fundraising page optimizer for Engaging Networks.">
+<meta name="twitter:image" content="https://crescendo.orkestre.ai/img/og-image.png">
+<link rel="icon" href="favicon.ico" sizes="32x32">
+<link rel="icon" type="image/svg+xml" href="img/logo.svg">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+<link rel="preload" href="fonts/playfair-display-latin-900-italic.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/space-grotesk-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/space-grotesk-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="css/site.css">
+<script type="module" src="js/hero.js"></script>
+<script type="module" src="js/tuner.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<!-- ===== Hero: silence → sound ===== -->
+<header class="hero" data-hero>
+  <canvas data-hero-canvas aria-hidden="true"></canvas>
+  <div class="hero-inner">
+    <p class="eyebrow mono">Open source &middot; for Engaging Networks</p>
+    <p class="brand"><span class="hairpin">&lt;</span> Crescendo</p>
+    <h1>
+      <span class="line">Every donation page has a signal.</span>
+      <span class="line">Crescendo turns it up.</span>
+    </h1>
+    <p class="sub line">The open-source fundraising page optimizer for Engaging Networks. It syncs your donation pages, layers in GA4 and NetDonor revenue data, and asks the AI model <em>you</em> choose — cloud or local — what to improve.</p>
+    <div class="cta-row line">
+      <a class="btn primary" href="https://github.com/orkestre-ai/crescendo">View on GitHub</a>
+      <a class="btn ghost" href="#monitor">How it works</a>
+      <span class="chip ink">$ docker compose up</span>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ===== pp: the quiet problems ===== -->
+  <section class="movement m-pp" id="problems" aria-labelledby="h-problems">
+    <p class="dyn-mark"><em class="dyn">pp</em> <span class="dyn-label">the quiet problems</span></p>
+    <h2 id="h-problems">If you run fundraising pages on Engaging Networks, you already know these.</h2>
+    <p>They're quiet. They cost you anyway.</p>
+    <div class="vignettes">
+      <div>
+        <h3>The revenue your analytics never saw</h3>
+        <p>GA4 says one number. Engaging Networks says another. The gap is real donations your tracking missed — and nobody is measuring how big it is.</p>
+      </div>
+      <div>
+        <h3>Your story is split across three tools</h3>
+        <p>Conversion data in EN reports, traffic in GA4, the actual appeal on the page itself. Assembling one picture of one page is an afternoon. You have two hundred pages.</p>
+      </div>
+      <div>
+        <h3>Nobody has time to audit every page</h3>
+        <p>The pages that quietly underperform stay quiet, because reviewing each one by hand never makes it to the top of the list.</p>
+      </div>
+      <div>
+        <h3>The tools that could help are priced for enterprises</h3>
+        <p>Conversion optimization platforms assume enterprise budgets. Nonprofit digital teams rarely have one.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== mp: monitor ===== -->
+  <section class="movement m-mp" id="monitor" aria-labelledby="h-monitor">
+    <p class="dyn-mark"><em class="dyn">mp</em> <span class="dyn-label">monitor</span></p>
+    <h2 id="h-monitor">It watches your pages so you don't have to.</h2>
+    <p class="body">Crescendo connects to your Engaging Networks account and syncs every donation page. Then it layers in the numbers: traffic and conversions from Google Analytics 4, revenue from EN's NetDonor data. Every page, one dashboard — on the schedule you choose: on demand, hourly, daily, or weekly.</p>
+    <figure class="shot-card">
+      <div class="chrome" aria-hidden="true"><i></i><i></i><i></i><span class="addr">crescendo — dashboard</span></div>
+      <img src="img/dashboard-screenshot.png" alt="Crescendo dashboard listing fundraising pages with conversion rate, revenue, page views, and donation counts" width="1600" height="1291" loading="lazy">
+      <figcaption>All pages, one dashboard — conversion rate, revenue, page views, donation counts.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ===== mf: measure ===== -->
+  <section class="movement m-mf" id="measure" aria-labelledby="h-measure">
+    <p class="dyn-mark"><em class="dyn">mf</em> <span class="dyn-label">measure</span></p>
+    <h2 id="h-measure">It sees the page the way a donor does.</h2>
+    <p class="body">On deep scans, Crescendo scrapes each page's live content — appeal text, buttons, donation amounts — and captures desktop and mobile screenshots. It detects your payment gateway and digital wallets (Apple Pay, Google Pay, PayPal, Venmo), and flags console errors a donor would never report. Cloudflare-protected pages get a headless-browser fallback.</p>
+    <p class="body">And it measures the gap: GA4 conversions against EN's donation records over the last 30 days, with an estimate of the revenue your tracking never saw.</p>
+    <figure class="shot-card">
+      <div class="chrome" aria-hidden="true"><i></i><i></i><i></i><span class="addr">crescendo — page detail</span></div>
+      <img src="img/campaign-metrics-screenshot.png" alt="Page detail view with campaign metrics, trend charts, and tracking accuracy indicator" width="1600" height="1291" loading="lazy">
+      <figcaption>Page detail — campaign metrics, trends, and the tracking-accuracy gap.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ===== f: optimize ===== -->
+  <section class="movement m-f" id="optimize" aria-labelledby="h-optimize">
+    <p class="dyn-mark"><em class="dyn">f</em> <span class="dyn-label">optimize</span></p>
+    <h2 id="h-optimize">Then it asks the model you trust what to improve.</h2>
+    <p class="body">Recommendations are grounded in your actual page content and conversion data — not generic best practice. Three surfaces, one goal:</p>
+    <div class="modalities">
+      <div class="mode">
+        <span class="k">01 · generate</span>
+        <strong>Recommendations</strong>
+        <p>Per-page optimization suggestions, shaped by context profiles — an emergency appeal is not a mid-level campaign. Each arrives with a confidence score; dismiss it, or mark it implemented once you've made the change.</p>
+      </div>
+      <div class="mode">
+        <span class="k">02 · explore</span>
+        <strong>Explorations</strong>
+        <p>Curated queries you run against any page — traffic sources, mobile vs desktop, what changed since the last scan. Results are cached per page, with history, so you can compare runs over time.</p>
+      </div>
+      <div class="mode">
+        <span class="k">03 · chat</span>
+        <strong>Chat</strong>
+        <p>A free-form assistant that can see the page's content, metrics, and fundraising history. Conversations persist per page, so the thread picks up where you left off.</p>
+      </div>
+    </div>
+    <p class="body">Under the hood, the AI reaches your data through tools — GA4 queries, page performance, site-wide comparisons, snapshot diffs, content audits, and web search — and shows its work in a tool activity panel you can expand, call by call.</p>
+    <div class="callout-make">
+      <strong>Make it yours.</strong>
+      <p>Every system prompt is editable — recommendations, explorations, and chat each expose theirs in AI Config. Write your own explorations in a full-page editor (reorder, toggle, delete them too), and set tool guardrails like a web-search domain allowlist.</p>
+    </div>
+    <div class="model-picker" role="list" aria-label="Supported AI providers">
+      <div class="model" role="listitem"><strong>Anthropic</strong><span>Claude</span></div>
+      <div class="model" role="listitem"><strong>OpenAI</strong><span>GPT</span></div>
+      <div class="model" role="listitem"><strong>Google</strong><span>Gemini</span></div>
+      <div class="model local-model" role="listitem"><strong>Ollama</strong><span>local · your hardware</span></div>
+    </div>
+    <p class="body">Assigned per surface — recommendations, explorations, chat — and switched any time.</p>
+    <figure class="shot-card">
+      <div class="chrome" aria-hidden="true"><i></i><i></i><i></i><span class="addr">crescendo — ai assistant</span></div>
+      <img src="img/ai-explorations-screenshot.png" alt="AI Explorations panel with configurable query templates and a streaming result window" width="1600" height="1291" loading="lazy">
+      <figcaption>The Explore surface running a traffic-source breakdown, tool calls visible on the right.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ===== sotto voce: security ===== -->
+  <section class="movement m-sotto" id="security" aria-labelledby="h-security">
+    <p class="dyn-mark"><em class="dyn">sotto voce</em> <span class="dyn-label">security</span></p>
+    <h2 id="h-security">Quiet by design.</h2>
+    <p class="body">Donor data deserves a tool that shows its work. Every claim below links to the code that makes it true.</p>
+    <ul class="evidence">
+      <li>
+        <strong>Read-only by construction.</strong>
+        <p>Crescendo never calls a write endpoint on your Engaging Networks account — it syncs and reads, nothing else.</p>
+        <span class="src"><a href="https://github.com/orkestre-ai/crescendo/blob/main/src/lib/engaging-networks.ts">src/lib/engaging-networks.ts</a> · <a href="https://github.com/orkestre-ai/crescendo/blob/main/src/lib/en-public-client.ts">src/lib/en-public-client.ts</a></span>
+      </li>
+      <li>
+        <strong>Keys encrypted at rest.</strong>
+        <p>API credentials are stored with AES-256-GCM, a random IV per secret, and masked in the UI.</p>
+        <span class="src"><a href="https://github.com/orkestre-ai/crescendo/blob/main/src/lib/crypto.ts">src/lib/crypto.ts</a></span>
+      </li>
+      <li>
+        <strong>Delete on your terms.</strong>
+        <p>One call clears pages, recommendations, or settings — with explicit confirmation — and retention cleanup prunes old data automatically.</p>
+        <span class="src"><a href="https://github.com/orkestre-ai/crescendo/blob/main/src/app/api/settings/clear/route.ts">src/app/api/settings/clear/route.ts</a> · <a href="https://github.com/orkestre-ai/crescendo/blob/main/src/lib/cleanup.ts">src/lib/cleanup.ts</a></span>
+      </li>
+      <li>
+        <strong>Self-hosted.</strong>
+        <p>Docker Compose on your infrastructure. Your donor analytics never live on someone else's platform.</p>
+        <span class="src"><a href="https://github.com/orkestre-ai/crescendo/blob/main/docker-compose.yml">docker-compose.yml</a></span>
+      </li>
+      <li>
+        <strong>AI on your hardware, if you want.</strong>
+        <p>Point it at Ollama and analysis runs on your own machines — no donor data sent to a cloud model.</p>
+        <span class="src"><a href="https://github.com/orkestre-ai/crescendo/blob/main/src/lib/ai/providers.ts">src/lib/ai/providers.ts</a></span>
+      </li>
+      <li>
+        <strong>Open source, AGPL-3.0.</strong>
+        <p>Read every line before you trust it with a single record.</p>
+        <span class="src"><a href="https://github.com/orkestre-ai/crescendo/blob/main/LICENSE">LICENSE</a></span>
+      </li>
+    </ul>
+  </section>
+
+  <!-- ===== ff: finale — the one inversion ===== -->
+  <div class="finale ink">
+    <section class="movement m-ff" id="finale" aria-labelledby="h-finale">
+      <p class="dyn-mark"><em class="dyn">ff</em> <span class="dyn-label">open source</span></p>
+      <h2 id="h-finale">Turn it up.</h2>
+      <p class="body">Free and open source. Running in your infrastructure in two commands.</p>
+      <div class="quickstart">
+        <div class="chrome" aria-hidden="true"><i></i><i></i><i></i><span class="addr">terminal</span></div>
+        <pre><code>git clone https://github.com/orkestre-ai/crescendo.git
+cd crescendo &amp;&amp; docker compose up</code></pre>
+      </div>
+      <div class="cta-row">
+        <a class="btn primary" href="https://github.com/orkestre-ai/crescendo">View on GitHub</a>
+      </div>
+      <p class="license">AGPL-3.0 · free forever · your data stays yours</p>
+      <p class="credit">Built by a <a href="https://www.linkedin.com/in/ryanbaillargeon">20-year nonprofit-sector veteran</a> at <a href="https://orkestre.ai">Orkestre AI</a>.</p>
+    </section>
+    <footer>
+      <div class="foot-inner">
+        <div class="foot-brand">
+          <p class="foot-mark"><span class="hairpin">&lt;</span> <span class="wordmark">Crescendo</span></p>
+          <p class="foot-tag">Open-source fundraising page optimizer for Engaging Networks</p>
+        </div>
+        <nav class="foot-links" aria-label="Footer">
+          <a href="https://github.com/orkestre-ai/crescendo">GitHub</a>
+          <a href="https://github.com/orkestre-ai/crescendo/blob/main/LICENSE">License</a>
+          <a href="https://orkestre.ai">Orkestre AI</a>
+        </nav>
+      </div>
+      <p class="foot-fine">© 2026 Orkestre AI · AGPL-3.0 · no trackers on this site</p>
+    </footer>
+  </div>
+
+</main>
+</body>
+</html>
