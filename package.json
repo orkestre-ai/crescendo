@@ -61,7 +61,7 @@
     "@tanstack/react-table": "^8.21.3",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.2",
-    "ai": "^6.0.158",
+    "ai": "^7.0.41",
     "autoprefixer": "^10.5.2",
     "axios": "^1.18.1",
     "axios-cookiejar-support": "^7.0.0",
