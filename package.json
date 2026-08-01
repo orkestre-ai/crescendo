@@ -36,7 +36,7 @@
   "author": "",
   "license": "AGPL-3.0-only",
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.77",
+    "@ai-sdk/anthropic": "^4.0.23",
     "@ai-sdk/google": "^3.0.72",
     "@ai-sdk/openai": "^3.0.63",
     "@ai-sdk/react": "^3.0.180",
