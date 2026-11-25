@@ -51,7 +51,7 @@ for line in sys.stdin.read().splitlines():
         continue
     fields = line.split()
     local = fields[3]
-    host = local.rsplit(":", 1)[0].strip("[]").split("%")[0]
+    host = local.rsplit(":", 1)[0].split("%")[0].strip("[]")
     if host != "*":
         ip = ipaddress.ip_address(host)
         if ip.is_loopback or any(ip in net for net in allowed):
