@@ -686,6 +686,7 @@ After Docker setup is complete:
 ## Related Documentation
 
 - [Credential Setup Guide](./credential-setup.md) - Set up API credentials
+- [DigitalOcean Deployment Guide](./digitalocean-deploy.md) - Run a private production instance
 - [Engaging Networks API Reference](../api/engaging-networks.md) - EN API documentation
 
 ---
