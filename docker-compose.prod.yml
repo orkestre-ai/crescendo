@@ -33,6 +33,9 @@ services:
     command: tunnel --no-autoupdate run
     environment:
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?set CLOUDFLARE_TUNNEL_TOKEN in .env}
+      # Origin for tunnels created with `cloudflared tunnel create` (locally
+      # managed). Dashboard-managed tunnels point at the same origin.
+      TUNNEL_URL: http://app:3000
     depends_on:
       - app
     networks:
