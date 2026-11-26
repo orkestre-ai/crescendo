@@ -139,9 +139,9 @@ async function resolveApiKey(
 
 /**
  * Generation settings for a surface. Reasoning effort comes from the saved
- * per-surface setting and is sent only to models that accept it. Output
- * limits are left to the provider SDK (each model's maximum) except for the
- * non-streamed recommendations call; thinking counts against that limit.
+ * per-surface setting and is sent only to models that accept it. Recs get a
+ * fixed output cap; chat and explore callers pass the Max Response setting.
+ * Thinking counts against the output cap.
  */
 export function getGenerationOptions(
   config: ProviderConfig,

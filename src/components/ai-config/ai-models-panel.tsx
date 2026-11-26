@@ -454,7 +454,7 @@ export function AiModelsPanel({ settings, onSettingsUpdate }: AiModelsPanelProps
       <Card>
         <CardHeader>
           <CardTitle>AI Limits</CardTitle>
-          <CardDescription>Configure token limits for Chat and Explore modes</CardDescription>
+          <CardDescription>Token limits for Chat and Explore modes</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
@@ -471,7 +471,9 @@ export function AiModelsPanel({ settings, onSettingsUpdate }: AiModelsPanelProps
                 min={1000}
                 max={200000}
               />
-              <p className="text-xs text-muted-foreground">Max input tokens per request</p>
+              <p className="text-xs text-muted-foreground">
+                Chat shows a warning when a conversation&apos;s input passes this. Nothing is trimmed.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="chat-max-tokens">Max Response (tokens)</Label>
@@ -484,9 +486,11 @@ export function AiModelsPanel({ settings, onSettingsUpdate }: AiModelsPanelProps
                   if (!isNaN(v)) setChatMaxTokens(v);
                 }}
                 min={256}
-                max={8192}
+                max={64000}
               />
-              <p className="text-xs text-muted-foreground">Max output tokens per response</p>
+              <p className="text-xs text-muted-foreground">
+                Max output tokens per response, including reasoning
+              </p>
             </div>
           </div>
         </CardContent>

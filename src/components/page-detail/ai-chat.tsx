@@ -102,6 +102,7 @@ interface DbMessage {
   role: string;
   content: string;
   toolCalls?: { tool: string; params?: Record<string, unknown>; result?: unknown }[] | null;
+  usage?: { inputTokens?: number } | null;
 }
 
 function dbMessagesToUI(messages: DbMessage[]): UIMessage[] {
@@ -126,6 +127,7 @@ function dbMessagesToUI(messages: DbMessage[]): UIMessage[] {
       id: m.id,
       role: m.role as 'user' | 'assistant',
       parts,
+      metadata: m.usage?.inputTokens ? { contextTokens: m.usage.inputTokens } : undefined,
     };
   });
 }
@@ -142,6 +144,7 @@ export function AIChat({ pageId }: AIChatProps) {
   const [conversations, setConversations] = useState<ConversationListItem[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [toolExpandState, setToolExpandState] = useState<Record<string, boolean>>({});
+  const [maxContext, setMaxContext] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortConvRef = useRef<AbortController | null>(null);
@@ -197,6 +200,25 @@ export function AIChat({ pageId }: AIChatProps) {
   });
 
   const isStreaming = status === 'streaming' || status === 'submitted';
+
+  // Input tokens of the latest model call (sent by the chat route as metadata)
+  const contextTokens = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const t = (messages[i].metadata as { contextTokens?: number } | undefined)?.contextTokens;
+      if (t) return t;
+    }
+    return null;
+  }, [messages]);
+  const overContext = maxContext !== null && contextTokens !== null && contextTokens > maxContext;
+
+  useEffect(() => {
+    fetch('/api/settings')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setMaxContext(data?.ai?.chatMaxContext ?? null))
+      .catch(() => {
+        // No limit known -- skip the warning
+      });
+  }, []);
 
   // ── Extract tool entries from current messages (memoized) ───────
   const toolEntries = useMemo(() => extractToolEntries(messages), [messages]);
@@ -483,6 +505,16 @@ export function AIChat({ pageId }: AIChatProps) {
 
         {/* Input bar */}
         <div className="border-t bg-background px-4 py-3">
+          {overContext && (
+            <div className="mb-2 flex items-start gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+              <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+              <span>
+                This conversation sends about {contextTokens!.toLocaleString()} tokens per message,
+                over your Max Context of {maxContext!.toLocaleString()}. Start a new conversation to
+                keep costs down.
+              </span>
+            </div>
+          )}
           <div className="flex items-end gap-2">
             <Textarea
               ref={textareaRef}

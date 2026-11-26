@@ -169,6 +169,7 @@ export async function POST(
     const result = streamText({
       model,
       ...getGenerationOptions(config, 'explore'),
+      maxOutputTokens: aiSettings.chatMaxTokens,
       system: systemPrompt,
       messages: await convertToModelMessages([userMessage]),
       tools: getTools(enabledTools),

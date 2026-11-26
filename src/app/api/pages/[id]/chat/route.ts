@@ -123,6 +123,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const result = streamText({
       model,
       ...getGenerationOptions(config, 'chat'),
+      maxOutputTokens: aiSettings.chatMaxTokens,
       system: systemPrompt,
       messages: await convertToModelMessages(messages),
       tools: allTools,
@@ -192,7 +193,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       },
     });
 
-    return result.toUIMessageStreamResponse();
+    // Input size of the latest model call, so the client can warn when the
+    // conversation outgrows the Max Context setting.
+    return result.toUIMessageStreamResponse({
+      messageMetadata: ({ part }) =>
+        part.type === 'finish-step' ? { contextTokens: part.usage.inputTokens } : undefined,
+    });
   } catch (error) {
     const chatLog = createChatLogger('unknown', 'unknown');
     chatLog.error(error instanceof Error ? error.message : 'Unknown error', undefined, error instanceof Error ? error : undefined);
