@@ -11,7 +11,7 @@ import type {
 import type { SettingsResponse, SettingsUpdateRequest } from '@/types/settings';
 import type { ReportingCurrency } from '@/types/fundraising';
 import { DEFAULT_CONTEXT_PROFILES, type ContextProfile } from '@/config/ai-profiles';
-import { DEFAULT_MODEL_LISTS } from '@/lib/ai/defaults';
+import { withCurrentDefaults } from '@/lib/ai/defaults';
 import type { AiModelLists } from '@/lib/ai/types';
 import type { ProviderName } from '@/lib/ai/types';
 
@@ -296,7 +296,7 @@ export async function getSettingsResponse(): Promise<SettingsResponse> {
         isConfigured: !!settings.aiOllamaBaseUrl,
         baseUrl: settings.aiOllamaBaseUrl,
       },
-      modelLists: (settings.aiModelLists as AiModelLists | null) ?? DEFAULT_MODEL_LISTS,
+      modelLists: withCurrentDefaults(settings.aiModelLists as AiModelLists | null),
       chatProvider: settings.aiChatProvider,
       chatModelId: settings.aiChatModelId,
       exploreProvider: settings.aiExploreProvider,

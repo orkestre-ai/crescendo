@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 import { getAiSettings, getOrCreateSettings } from '@/lib/settings';
 import { getProfileById } from '@/config/ai-profiles';
 import { getToolInstructions, getTools } from '@/lib/ai/tools';
-import { getProviderConfig, getProviderModel } from '@/lib/ai/providers';
+import { getGenerationOptions, getProviderConfig, getProviderModel } from '@/lib/ai/providers';
 import { DEFAULT_EXPLORATION_SYSTEM_PROMPT } from '@/config/ai-defaults';
 import { interpolateTemplate } from '@/lib/prompt-utils';
 import { resolveDynamicVariables } from '@/lib/ai/dynamic-template-variables';
@@ -168,6 +168,7 @@ export async function POST(
 
     const result = streamText({
       model,
+      ...getGenerationOptions(config.provider, config.modelId, 'explore'),
       system: systemPrompt,
       messages: await convertToModelMessages([userMessage]),
       tools: getTools(enabledTools),

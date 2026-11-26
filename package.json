@@ -36,9 +36,9 @@
   "author": "",
   "license": "AGPL-3.0-only",
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.77",
-    "@ai-sdk/google": "^3.0.72",
-    "@ai-sdk/openai": "^3.0.63",
+    "@ai-sdk/anthropic": "^3.0.143",
+    "@ai-sdk/google": "^3.0.150",
+    "@ai-sdk/openai": "^3.0.145",
     "@ai-sdk/react": "^3.0.180",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",

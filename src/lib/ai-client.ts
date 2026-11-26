@@ -1,5 +1,5 @@
 import { generateText } from 'ai';
-import { getProviderConfig, getProviderModel } from '@/lib/ai/providers';
+import { getGenerationOptions, getProviderConfig, getProviderModel } from '@/lib/ai/providers';
 import { createApiClientLogger } from '@/lib/logging/journeys';
 import { DEFAULT_SYSTEM_PROMPT, DEFAULT_USER_PROMPT_TEMPLATE } from '@/config/ai-defaults';
 
@@ -80,8 +80,7 @@ export async function generateRecommendations(
     model,
     system: systemPrompt,
     prompt,
-    temperature: 0.7,
-    maxOutputTokens: 1024,
+    ...getGenerationOptions(config.provider, config.modelId, 'recs'),
   });
 
   const durationMs = performance.now() - start;
