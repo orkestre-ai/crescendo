@@ -49,8 +49,8 @@ const updateSettingsSchema = z.object({
     )
     .optional(),
   aiChatModel: z.string().optional(),
-  aiChatMaxContext: z.number().int().min(1000).max(200000).optional(),
-  aiChatMaxTokens: z.number().int().min(256).max(8192).optional(),
+  aiChatMaxContext: z.number().int().min(50000).max(1000000).optional(),
+  aiChatMaxTokens: z.number().int().min(256).max(64000).optional(),
   aiChatSystemPrompt: z.string().nullable().optional(),
   aiOrgSearchDomains: z.array(z.string().regex(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,}$/, 'Invalid domain format')).max(5).optional(),
   reportingCurrency: z.enum(['USD', 'CAD', 'GBP', 'EUR', 'AUD']).optional(),

@@ -341,8 +341,8 @@ model AppSettings {
   aiUserPromptTemplate String?  @db.Text  // Custom user prompt template (null = use default)
   aiContextProfiles Json?    // Array of { id, name, description, context, isDefault }
   aiChatModel       String   @default("claude-sonnet-4-6")
-  aiChatMaxContext   Int      @default(50000)
-  aiChatMaxTokens    Int      @default(4096)
+  aiChatMaxContext   Int      @default(150000)
+  aiChatMaxTokens    Int      @default(32000)
 
   // EN Public API (encrypted token + region, entered via Settings UI)
   enPublicTokenEncrypted         String?
@@ -557,6 +557,7 @@ model Message {
   content        String       @db.Text
   toolCalls      Json?
   usage          Json?
+  compaction     String?      @db.Text // Claude's summary of earlier turns; sent back on later turns
   createdAt      DateTime     @default(now())
 
   @@index([conversationId, createdAt])

@@ -2,14 +2,18 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createOllama } from 'ollama-ai-provider-v2';
+import type { streamText } from 'ai';
 import { decrypt } from '@/lib/crypto';
 import { getOrCreateSettings } from '@/lib/settings';
 import { rootLogger } from '@/lib/logging';
-import { DEFAULT_MODEL_ID, withCurrentDefaults } from './defaults';
+import { DEFAULT_MODEL_ID, getContextWindow, isContextFull, withCurrentDefaults } from './defaults';
 import { supportsEffort, type AiEffort } from './effort';
+import { supportsCompaction } from './context';
 import type { ProviderName, ProviderConfig, AiSurface, AiModelLists } from './types';
 
 const log = rootLogger.child({ module: 'ai-providers' });
+
+type ProviderOptions = NonNullable<Parameters<typeof streamText>[0]['providerOptions']>;
 
 /**
  * Normalize an Ollama base URL into root and API forms.
@@ -139,22 +143,64 @@ async function resolveApiKey(
 
 /**
  * Generation settings for a surface. Reasoning effort comes from the saved
- * per-surface setting and is sent only to models that accept it. Output
- * limits are left to the provider SDK (each model's maximum) except for the
- * non-streamed recommendations call; thinking counts against that limit.
+ * per-surface setting and is sent only to models that accept it. Recs get a
+ * fixed output cap; chat and explore callers pass the Max Response setting.
+ * Thinking counts against the output cap.
+ *
+ * Chat and explore resend the history and tool results on every call, so
+ * Anthropic prompt caching is on for them (the repeated prefix bills at about
+ * a tenth). OpenAI and Gemini cache repeated prefixes automatically.
+ *
+ * With a contextCap, Claude models that support it compact (summarize) the
+ * conversation server-side once a call's input reaches the cap.
  */
 export function getGenerationOptions(
   config: ProviderConfig,
   surface: AiSurface,
-): { maxOutputTokens?: number; providerOptions?: Record<string, Record<string, string>> } {
+  contextCap?: number,
+): { maxOutputTokens?: number; providerOptions?: ProviderOptions } {
   const { provider, modelId, effort } = config;
+  const withEffort = supportsEffort(provider, modelId);
+  const withCache = provider === 'anthropic' && surface !== 'recs';
+  const withCompaction = contextCap !== undefined && surface !== 'recs' && supportsCompaction(provider, modelId);
+
+  let providerOptions: ProviderOptions | undefined;
+  if (provider === 'anthropic' && (withEffort || withCache)) {
+    providerOptions = {
+      anthropic: {
+        ...(withEffort && { effort }),
+        ...(withCache && { cacheControl: { type: 'ephemeral' } }),
+        ...(withCompaction && {
+          contextManagement: {
+            // The API rejects triggers below 50,000 tokens
+            edits: [
+              {
+                type: 'compact_20260112',
+                trigger: { type: 'input_tokens', value: Math.max(contextCap, 50_000) },
+              },
+            ],
+          },
+        }),
+      },
+    };
+  } else if (provider === 'openai' && withEffort) {
+    providerOptions = { openai: { reasoningEffort: effort } };
+  }
+
   return {
     ...(surface === 'recs' && { maxOutputTokens: 16000 }),
-    ...(supportsEffort(provider, modelId) && {
-      providerOptions:
-        provider === 'anthropic'
-          ? { anthropic: { effort } }
-          : { openai: { reasoningEffort: effort } },
-    }),
+    ...(providerOptions && { providerOptions }),
+  };
+}
+
+/**
+ * Stop condition that ends a tool loop before the next step could overflow
+ * the model's context window. Never fires for models with an unknown window.
+ */
+export function contextFullStop(config: ProviderConfig, maxOutputTokens: number) {
+  const contextWindow = getContextWindow(config.provider, config.modelId);
+  return ({ steps }: { steps: { usage: { inputTokens?: number } }[] }) => {
+    const input = steps[steps.length - 1]?.usage.inputTokens ?? 0;
+    return contextWindow !== undefined && isContextFull(input, maxOutputTokens, contextWindow);
   };
 }

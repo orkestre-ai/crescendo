@@ -454,7 +454,7 @@ export function AiModelsPanel({ settings, onSettingsUpdate }: AiModelsPanelProps
       <Card>
         <CardHeader>
           <CardTitle>AI Limits</CardTitle>
-          <CardDescription>Configure token limits for Chat and Explore modes</CardDescription>
+          <CardDescription>Token limits for Chat and Explore modes</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
@@ -468,10 +468,13 @@ export function AiModelsPanel({ settings, onSettingsUpdate }: AiModelsPanelProps
                   const v = parseInt(e.target.value);
                   if (!isNaN(v)) setChatMaxContext(v);
                 }}
-                min={1000}
-                max={200000}
+                min={50000}
+                max={1000000}
               />
-              <p className="text-xs text-muted-foreground">Max input tokens per request</p>
+              <p className="text-xs text-muted-foreground">
+                Input cap per request. Claude summarizes older messages when a conversation reaches
+                it; other models drop the oldest messages.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="chat-max-tokens">Max Response (tokens)</Label>
@@ -484,9 +487,11 @@ export function AiModelsPanel({ settings, onSettingsUpdate }: AiModelsPanelProps
                   if (!isNaN(v)) setChatMaxTokens(v);
                 }}
                 min={256}
-                max={8192}
+                max={64000}
               />
-              <p className="text-xs text-muted-foreground">Max output tokens per response</p>
+              <p className="text-xs text-muted-foreground">
+                Max output tokens per response, including reasoning
+              </p>
             </div>
           </div>
         </CardContent>
