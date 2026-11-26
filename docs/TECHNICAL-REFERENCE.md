@@ -1066,6 +1066,8 @@ All conditions OR'd together (any one triggers a scrape):
 | Explore | Anthropic | claude-sonnet-5-5 |
 | Recommendations | Anthropic | claude-sonnet-5-5 |
 
+Each surface also has a reasoning-effort setting (`aiChatEffort`, `aiExploreEffort`, `aiRecsEffort`: low, medium, high, xhigh, max; defaults medium, medium, low). It is sent only to models that accept it (`src/lib/ai/effort.ts`).
+
 #### Available Models
 
 - **Anthropic**: claude-haiku-5-5, claude-sonnet-5-5, claude-opus-5-5

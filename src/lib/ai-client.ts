@@ -80,7 +80,7 @@ export async function generateRecommendations(
     model,
     system: systemPrompt,
     prompt,
-    ...getGenerationOptions(config.provider, config.modelId, 'recs'),
+    ...getGenerationOptions(config, 'recs'),
   });
 
   const durationMs = performance.now() - start;

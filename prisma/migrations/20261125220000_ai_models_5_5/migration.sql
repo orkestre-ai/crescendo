@@ -3,6 +3,11 @@ ALTER TABLE "AppSettings" ALTER COLUMN "aiChatModelId" SET DEFAULT 'claude-sonne
 ALTER TABLE "AppSettings" ALTER COLUMN "aiExploreModelId" SET DEFAULT 'claude-sonnet-5-5';
 ALTER TABLE "AppSettings" ALTER COLUMN "aiRecsModelId" SET DEFAULT 'claude-sonnet-5-5';
 
+-- Reasoning effort per surface.
+ALTER TABLE "AppSettings" ADD COLUMN "aiChatEffort" TEXT NOT NULL DEFAULT 'medium';
+ALTER TABLE "AppSettings" ADD COLUMN "aiExploreEffort" TEXT NOT NULL DEFAULT 'medium';
+ALTER TABLE "AppSettings" ADD COLUMN "aiRecsEffort" TEXT NOT NULL DEFAULT 'low';
+
 -- Move saved selections off the previous built-in models. Haiku 4.5 was the
 -- old recommendations default, so it moves to the new default (Sonnet 5.5);
 -- other models move to their current tier. Custom model IDs are untouched.

@@ -168,7 +168,7 @@ export async function POST(
 
     const result = streamText({
       model,
-      ...getGenerationOptions(config.provider, config.modelId, 'explore'),
+      ...getGenerationOptions(config, 'explore'),
       system: systemPrompt,
       messages: await convertToModelMessages([userMessage]),
       tools: getTools(enabledTools),

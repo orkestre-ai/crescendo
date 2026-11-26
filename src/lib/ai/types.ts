@@ -1,3 +1,5 @@
+import type { AiEffort } from './effort';
+
 export type ProviderName = 'anthropic' | 'openai' | 'google' | 'ollama';
 
 export interface ModelEntry {
@@ -11,6 +13,7 @@ export type AiModelLists = Record<ProviderName, ModelEntry[]>;
 export interface ProviderConfig {
   provider: ProviderName;
   modelId: string;
+  effort: AiEffort;
   apiKey?: string;
   baseUrl?: string;
 }

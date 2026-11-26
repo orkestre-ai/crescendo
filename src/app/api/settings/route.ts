@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { EFFORT_LEVELS } from '@/lib/ai/effort';
 import { getSettingsResponse, updateSettings } from '@/lib/settings';
 import { rootLogger } from '@/lib/logging';
 import type { ErrorResponse } from '@/types/settings';
@@ -64,6 +65,9 @@ const updateSettingsSchema = z.object({
   aiExploreModelId: z.string().optional(),
   aiRecsProvider: z.enum(['anthropic', 'openai', 'google', 'ollama']).optional(),
   aiRecsModelId: z.string().optional(),
+  aiChatEffort: z.enum(EFFORT_LEVELS).optional(),
+  aiExploreEffort: z.enum(EFFORT_LEVELS).optional(),
+  aiRecsEffort: z.enum(EFFORT_LEVELS).optional(),
   aiModelLists: z.object({
     anthropic: z.array(z.object({ id: z.string(), label: z.string(), isDefault: z.boolean() })),
     openai: z.array(z.object({ id: z.string(), label: z.string(), isDefault: z.boolean() })),

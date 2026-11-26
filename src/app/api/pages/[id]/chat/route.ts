@@ -122,7 +122,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const result = streamText({
       model,
-      ...getGenerationOptions(config.provider, config.modelId, 'chat'),
+      ...getGenerationOptions(config, 'chat'),
       system: systemPrompt,
       messages: await convertToModelMessages(messages),
       tools: allTools,

@@ -6,6 +6,7 @@ import { decrypt } from '@/lib/crypto';
 import { getOrCreateSettings } from '@/lib/settings';
 import { rootLogger } from '@/lib/logging';
 import { DEFAULT_MODEL_ID, withCurrentDefaults } from './defaults';
+import { supportsEffort, type AiEffort } from './effort';
 import type { ProviderName, ProviderConfig, AiSurface, AiModelLists } from './types';
 
 const log = rootLogger.child({ module: 'ai-providers' });
@@ -59,6 +60,9 @@ export async function getProviderConfig(
   const modelField = surface === 'chat' ? 'aiChatModelId'
     : surface === 'explore' ? 'aiExploreModelId'
     : 'aiRecsModelId';
+  const effortField = surface === 'chat' ? 'aiChatEffort'
+    : surface === 'explore' ? 'aiExploreEffort'
+    : 'aiRecsEffort';
 
   const provider = (settings[providerField] as ProviderName) || 'anthropic';
   const modelId = (settings[modelField] as string) || DEFAULT_MODEL_ID;
@@ -70,7 +74,9 @@ export async function getProviderConfig(
     baseUrl = normalizeOllamaUrl(settings.aiOllamaBaseUrl).api;
   }
 
-  return { provider, modelId, apiKey, baseUrl };
+  const effort = settings[effortField] as AiEffort;
+
+  return { provider, modelId, effort, apiKey, baseUrl };
 }
 
 /**
@@ -131,29 +137,20 @@ async function resolveApiKey(
   }
 }
 
-// Models that accept a reasoning-effort setting. Older models reject it
-// (Claude Haiku/Sonnet 4.5) or ignore it (non-reasoning GPT models).
-const EFFORT_MODELS: Partial<Record<ProviderName, RegExp>> = {
-  anthropic: /^claude-(fable|mythos|opus|sonnet|haiku)-5|^claude-opus-4-[5-9]|^claude-sonnet-4-6/,
-  openai: /^gpt-[56]/,
-};
-
 /**
- * Per-surface generation settings. Recommendations are a short, high-volume
- * batch call, so they run at low effort; chat and explore drive multi-step
- * tool use and run at medium. Output limits are left to the provider SDK
- * (each model's maximum) except for the non-streamed recommendations call.
+ * Generation settings for a surface. Reasoning effort comes from the saved
+ * per-surface setting and is sent only to models that accept it. Output
+ * limits are left to the provider SDK (each model's maximum) except for the
+ * non-streamed recommendations call; thinking counts against that limit.
  */
 export function getGenerationOptions(
-  provider: ProviderName,
-  modelId: string,
+  config: ProviderConfig,
   surface: AiSurface,
 ): { maxOutputTokens?: number; providerOptions?: Record<string, Record<string, string>> } {
-  const effort = surface === 'recs' ? 'low' : 'medium';
-  const supportsEffort = EFFORT_MODELS[provider]?.test(modelId) ?? false;
+  const { provider, modelId, effort } = config;
   return {
     ...(surface === 'recs' && { maxOutputTokens: 16000 }),
-    ...(supportsEffort && {
+    ...(supportsEffort(provider, modelId) && {
       providerOptions:
         provider === 'anthropic'
           ? { anthropic: { effort } }
