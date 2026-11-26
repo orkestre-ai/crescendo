@@ -8,6 +8,7 @@ import { getOrCreateSettings } from '@/lib/settings';
 import { rootLogger } from '@/lib/logging';
 import { DEFAULT_MODEL_ID, getContextWindow, isContextFull, withCurrentDefaults } from './defaults';
 import { supportsEffort, type AiEffort } from './effort';
+import { supportsCompaction } from './context';
 import type { ProviderName, ProviderConfig, AiSurface, AiModelLists } from './types';
 
 const log = rootLogger.child({ module: 'ai-providers' });
@@ -149,14 +150,19 @@ async function resolveApiKey(
  * Chat and explore resend the history and tool results on every call, so
  * Anthropic prompt caching is on for them (the repeated prefix bills at about
  * a tenth). OpenAI and Gemini cache repeated prefixes automatically.
+ *
+ * With a contextCap, Claude models that support it compact (summarize) the
+ * conversation server-side once a call's input reaches the cap.
  */
 export function getGenerationOptions(
   config: ProviderConfig,
   surface: AiSurface,
+  contextCap?: number,
 ): { maxOutputTokens?: number; providerOptions?: ProviderOptions } {
   const { provider, modelId, effort } = config;
   const withEffort = supportsEffort(provider, modelId);
   const withCache = provider === 'anthropic' && surface !== 'recs';
+  const withCompaction = contextCap !== undefined && surface !== 'recs' && supportsCompaction(provider, modelId);
 
   let providerOptions: ProviderOptions | undefined;
   if (provider === 'anthropic' && (withEffort || withCache)) {
@@ -164,6 +170,17 @@ export function getGenerationOptions(
       anthropic: {
         ...(withEffort && { effort }),
         ...(withCache && { cacheControl: { type: 'ephemeral' } }),
+        ...(withCompaction && {
+          contextManagement: {
+            // The API rejects triggers below 50,000 tokens
+            edits: [
+              {
+                type: 'compact_20260112',
+                trigger: { type: 'input_tokens', value: Math.max(contextCap, 50_000) },
+              },
+            ],
+          },
+        }),
       },
     };
   } else if (provider === 'openai' && withEffort) {

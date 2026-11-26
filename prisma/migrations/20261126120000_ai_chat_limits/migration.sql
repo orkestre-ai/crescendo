@@ -4,7 +4,11 @@
 ALTER TABLE "AppSettings" ALTER COLUMN "aiChatMaxTokens" SET DEFAULT 32000;
 UPDATE "AppSettings" SET "aiChatMaxTokens" = 32000 WHERE "aiChatMaxTokens" = 4096;
 
--- Max Context is now a cost warning in chat. 100K is where Claude Haiku 5.5
--- input pricing rises; rows still on the old 50K default move up.
-ALTER TABLE "AppSettings" ALTER COLUMN "aiChatMaxContext" SET DEFAULT 100000;
-UPDATE "AppSettings" SET "aiChatMaxContext" = 100000 WHERE "aiChatMaxContext" = 50000;
+-- Max Context is now the input cap per call: Claude compacts at it, other
+-- models drop the oldest turns. It was never applied, so rows still on the
+-- old 50K default move to the new 150K.
+ALTER TABLE "AppSettings" ALTER COLUMN "aiChatMaxContext" SET DEFAULT 150000;
+UPDATE "AppSettings" SET "aiChatMaxContext" = 150000 WHERE "aiChatMaxContext" = 50000;
+
+-- Claude compaction summary, stored so reopened conversations keep it.
+ALTER TABLE "Message" ADD COLUMN "compaction" TEXT;

@@ -5,6 +5,7 @@ import { getAiSettings, getOrCreateSettings } from '@/lib/settings';
 import { getProfileById } from '@/config/ai-profiles';
 import { getToolInstructions, getTools } from '@/lib/ai/tools';
 import { contextFullStop, getGenerationOptions, getProviderConfig, getProviderModel } from '@/lib/ai/providers';
+import { getContextCap, isCompactionPart } from '@/lib/ai/context';
 import { DEFAULT_EXPLORATION_SYSTEM_PROMPT } from '@/config/ai-defaults';
 import { interpolateTemplate } from '@/lib/prompt-utils';
 import { resolveDynamicVariables } from '@/lib/ai/dynamic-template-variables';
@@ -168,14 +169,24 @@ export async function POST(
 
     const result = streamText({
       model,
-      ...getGenerationOptions(config, 'explore'),
+      ...getGenerationOptions(
+        config,
+        'explore',
+        getContextCap(config, aiSettings.chatMaxContext, aiSettings.chatMaxTokens)
+      ),
       maxOutputTokens: aiSettings.chatMaxTokens,
       system: systemPrompt,
       messages: await convertToModelMessages([userMessage]),
       tools: getTools(enabledTools),
       stopWhen: [stepCountIs(10), contextFullStop(config, aiSettings.chatMaxTokens)],
-      onFinish: async ({ text, steps, usage }) => {
+      onFinish: async ({ steps, usage }) => {
         try {
+          // Leave any compaction summary out of the saved response
+          const text = (steps[steps.length - 1]?.content ?? [])
+            .filter((p): p is Extract<typeof p, { type: 'text' }> => p.type === 'text' && !isCompactionPart(p))
+            .map((p) => p.text)
+            .join('');
+
           // Extract tool calls from steps
           const toolCalls = steps.flatMap((step) =>
             (step.toolCalls || []).map((tc) => ({

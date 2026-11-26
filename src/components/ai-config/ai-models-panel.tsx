@@ -468,12 +468,12 @@ export function AiModelsPanel({ settings, onSettingsUpdate }: AiModelsPanelProps
                   const v = parseInt(e.target.value);
                   if (!isNaN(v)) setChatMaxContext(v);
                 }}
-                min={1000}
+                min={50000}
                 max={1000000}
               />
               <p className="text-xs text-muted-foreground">
-                Chat warns when a conversation&apos;s input passes this. Conversations stop at the
-                model&apos;s own limit.
+                Input cap per request. Claude summarizes older messages when a conversation reaches
+                it; other models drop the oldest messages.
               </p>
             </div>
             <div className="space-y-2">

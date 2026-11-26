@@ -10,7 +10,7 @@ import {
   getProviderConfig,
   getProviderModel,
 } from '@/lib/ai/providers';
-import { getContextWindow, isContextFull } from '@/lib/ai/defaults';
+import { getContextCap, isCompactionPart, supportsCompaction, trimToContext } from '@/lib/ai/context';
 import { DEFAULT_CHAT_SYSTEM_PROMPT } from '@/config/ai-defaults';
 import { createChatLogger } from '@/lib/logging/journeys';
 
@@ -114,22 +114,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
     const model = getProviderModel(config.provider, config.modelId, config.apiKey, config.baseUrl);
 
-    // Refuse to continue a conversation whose last call already filled the
-    // model's context window; the user has to start a new one.
-    const contextWindow = getContextWindow(config.provider, config.modelId);
-    if (contextWindow && incomingConversationId) {
-      const lastReply = await prisma.message.findFirst({
-        where: { conversationId: incomingConversationId, role: 'assistant' },
-        orderBy: { createdAt: 'desc' },
-        select: { usage: true },
-      });
-      const used = (lastReply?.usage as { inputTokens?: number } | null)?.inputTokens ?? 0;
-      if (isContextFull(used, aiSettings.chatMaxTokens, contextWindow)) {
-        return NextResponse.json(
-          { error: 'This conversation has reached the model\'s context limit. Start a new conversation.' },
-          { status: 409 }
-        );
-      }
+    // Keep each call's input under the Max Context cap. Claude summarizes the
+    // older conversation server-side (compaction); other models drop the
+    // oldest turns here.
+    const contextCap = getContextCap(config, aiSettings.chatMaxContext, aiSettings.chatMaxTokens);
+    let modelMessages = await convertToModelMessages(messages);
+    let droppedMessages = 0;
+    if (!supportsCompaction(config.provider, config.modelId)) {
+      ({ messages: modelMessages, dropped: droppedMessages } = trimToContext(
+        systemPrompt,
+        modelMessages,
+        contextCap
+      ));
     }
 
     // Create chat journey logger
@@ -146,14 +142,26 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const result = streamText({
       model,
-      ...getGenerationOptions(config, 'chat'),
+      ...getGenerationOptions(config, 'chat', contextCap),
       maxOutputTokens: aiSettings.chatMaxTokens,
       system: systemPrompt,
-      messages: await convertToModelMessages(messages),
+      messages: modelMessages,
       tools: allTools,
       stopWhen: [stepCountIs(10), contextFullStop(config, aiSettings.chatMaxTokens)],
-      onFinish: async ({ text, steps, usage }) => {
+      onFinish: async ({ steps, usage }) => {
         try {
+          // A compaction summary comes back as a text part; keep it out of the
+          // reply text and store it so later turns can send it back.
+          const lastStep = steps[steps.length - 1];
+          const text = (lastStep?.content ?? [])
+            .filter((p): p is Extract<typeof p, { type: 'text' }> => p.type === 'text' && !isCompactionPart(p))
+            .map((p) => p.text)
+            .join('');
+          const compaction = steps
+            .flatMap((s) => s.content)
+            .filter((p): p is Extract<typeof p, { type: 'text' }> => isCompactionPart(p))
+            .at(-1)?.text;
+
           // Extract tool calls from steps
           const toolCalls = steps.flatMap((step) =>
             (step.toolCalls || []).map((tc) => ({
@@ -196,6 +204,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
                 conversationId: convId,
                 role: 'assistant',
                 content: text,
+                compaction,
                 toolCalls:
                   toolCalls.length > 0
                     ? JSON.parse(JSON.stringify(toolCalls))
@@ -217,11 +226,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       },
     });
 
-    // Input size of the latest model call, so the client can warn when the
-    // conversation outgrows the Max Context setting.
+    // Tell the client when older turns were left out, so it can say so.
     return result.toUIMessageStreamResponse({
-      messageMetadata: ({ part }) =>
-        part.type === 'finish-step' ? { contextTokens: part.usage.inputTokens } : undefined,
+      messageMetadata: ({ part }) => (part.type === 'start' ? { droppedMessages } : undefined),
     });
   } catch (error) {
     const chatLog = createChatLogger('unknown', 'unknown');

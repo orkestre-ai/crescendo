@@ -1071,8 +1071,8 @@ Each surface also has a reasoning-effort setting (`aiChatEffort`, `aiExploreEffo
 Chat and explore limits:
 
 - **Max Response** (`aiChatMaxTokens`, default 32,000, max 64,000) is the output cap for chat and explore calls, reasoning included. Recommendations use a fixed 16,000.
-- **Max Context** (`aiChatMaxContext`, default 100,000) only warns: chat shows a banner once a call's input passes it.
-- **Model context window** (`contextWindow` on the built-in model lists in `src/lib/ai/defaults.ts`) is a hard stop. When the last call's input plus Max Response reaches 95% of the window, the chat route refuses new messages (409) and the chat asks for a new conversation; tool loops in chat and explore stop at the same point. Models without a known window (user-added, Ollama) have no hard stop.
+- **Max Context** (`aiChatMaxContext`, default 150,000, range 50,000–1,000,000) caps the input of each chat and explore call (`src/lib/ai/context.ts`). Claude models that support it compact server-side when a call reaches the cap (beta `compact-2026-01-12`; the API's minimum trigger is 50,000): the summary comes back as a text part tagged `compaction`, is hidden in the UI, saved to `Message.compaction`, and sent back on later turns. Other models drop the oldest whole turns (estimated at 3 characters per token) before the call, and the chat says so.
+- **Model context window** (`contextWindow` on the built-in model lists in `src/lib/ai/defaults.ts`) bounds the cap so a full-length reply still fits, and stops a tool loop that would overflow it.
 - **Prompt caching** is on for Anthropic chat and explore calls, so resent history bills at the cache-read rate. OpenAI and Gemini cache automatically.
 
 #### Available Models

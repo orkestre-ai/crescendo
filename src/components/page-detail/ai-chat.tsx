@@ -16,8 +16,7 @@ import {
   Check,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getContextWindow, isContextFull } from '@/lib/ai/defaults';
-import type { ProviderName } from '@/lib/ai/types';
+import { isCompactionPart } from '@/lib/ai/context';
 import { ToolActivityPanel } from './tool-activity-panel';
 import {
   extractToolEntries,
@@ -104,12 +103,23 @@ interface DbMessage {
   role: string;
   content: string;
   toolCalls?: { tool: string; params?: Record<string, unknown>; result?: unknown }[] | null;
-  usage?: { inputTokens?: number } | null;
+  compaction?: string | null;
 }
 
 function dbMessagesToUI(messages: DbMessage[]): UIMessage[] {
   return messages.map((m) => {
-    const parts: UIMessage['parts'] = [{ type: 'text' as const, text: m.content }];
+    const parts: UIMessage['parts'] = [];
+
+    // A stored compaction summary goes first, tagged so the chat route sends
+    // it back to Claude in place of the turns it summarizes.
+    if (m.role === 'assistant' && m.compaction) {
+      parts.push({
+        type: 'text',
+        text: m.compaction,
+        providerMetadata: { anthropic: { type: 'compaction' } },
+      });
+    }
+    parts.push({ type: 'text' as const, text: m.content });
 
     // Reconstruct tool parts from persisted toolCalls JSON so extractToolEntries picks them up
     if (m.role === 'assistant' && Array.isArray(m.toolCalls)) {
@@ -129,7 +139,6 @@ function dbMessagesToUI(messages: DbMessage[]): UIMessage[] {
       id: m.id,
       role: m.role as 'user' | 'assistant',
       parts,
-      metadata: m.usage?.inputTokens ? { contextTokens: m.usage.inputTokens } : undefined,
     };
   });
 }
@@ -146,11 +155,6 @@ export function AIChat({ pageId }: AIChatProps) {
   const [conversations, setConversations] = useState<ConversationListItem[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [toolExpandState, setToolExpandState] = useState<Record<string, boolean>>({});
-  const [limits, setLimits] = useState<{
-    maxContext: number;
-    maxTokens: number;
-    contextWindow?: number;
-  } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortConvRef = useRef<AbortController | null>(null);
@@ -207,39 +211,18 @@ export function AIChat({ pageId }: AIChatProps) {
 
   const isStreaming = status === 'streaming' || status === 'submitted';
 
-  // Input tokens of the latest model call (sent by the chat route as metadata)
-  const contextTokens = useMemo(() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const t = (messages[i].metadata as { contextTokens?: number } | undefined)?.contextTokens;
-      if (t) return t;
+  // How the chat route kept the input under Max Context: Claude summarized
+  // earlier turns, or (other models) the oldest turns were left out.
+  const contextNote = useMemo(() => {
+    const lastReply = [...messages].reverse().find((m) => m.role === 'assistant');
+    if ((lastReply?.metadata as { droppedMessages?: number } | undefined)?.droppedMessages) {
+      return 'The oldest messages in this conversation are no longer sent to the model, to stay under the Max Context limit.';
+    }
+    if (messages.some((m) => m.parts.some(isCompactionPart))) {
+      return 'Earlier messages in this conversation have been summarized to stay under the Max Context limit.';
     }
     return null;
   }, [messages]);
-  const contextFull =
-    limits?.contextWindow !== undefined &&
-    contextTokens !== null &&
-    isContextFull(contextTokens, limits.maxTokens, limits.contextWindow);
-  const overContext =
-    !contextFull && limits !== null && contextTokens !== null && contextTokens > limits.maxContext;
-
-  useEffect(() => {
-    fetch('/api/settings')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (!data) return;
-        setLimits({
-          maxContext: data.ai.chatMaxContext,
-          maxTokens: data.ai.chatMaxTokens,
-          contextWindow: getContextWindow(
-            data.providers.chatProvider as ProviderName,
-            data.providers.chatModelId
-          ),
-        });
-      })
-      .catch(() => {
-        // No limits known -- skip the warnings; the server still refuses a full conversation
-      });
-  }, []);
 
   // Route errors arrive as the raw JSON body ({"error": "..."}); show just the message.
   const errorMessage = useMemo(() => {
@@ -326,7 +309,7 @@ export function AIChat({ pageId }: AIChatProps) {
   };
 
   const handleSend = useCallback(() => {
-    if (!input.trim() || isStreaming || contextFull) return;
+    if (!input.trim() || isStreaming) return;
 
     const userContent = input.trim();
 
@@ -345,7 +328,7 @@ export function AIChat({ pageId }: AIChatProps) {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
-  }, [input, isStreaming, contextFull, messages.length, sendMessage]);
+  }, [input, isStreaming, messages.length, sendMessage]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -536,27 +519,8 @@ export function AIChat({ pageId }: AIChatProps) {
 
         {/* Input bar */}
         <div className="border-t bg-background px-4 py-3">
-          {contextFull && (
-            <div className="mb-2 flex items-start gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-              <span className="flex-1">
-                This conversation has reached the model&apos;s context limit (
-                {limits!.contextWindow!.toLocaleString()} tokens).
-              </span>
-              <button onClick={handleNewConversation} className="font-medium underline shrink-0">
-                Start a new conversation
-              </button>
-            </div>
-          )}
-          {overContext && (
-            <div className="mb-2 flex items-start gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
-              <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-              <span>
-                This conversation sends about {contextTokens!.toLocaleString()} tokens per message,
-                over your Max Context of {limits!.maxContext.toLocaleString()}. Start a new
-                conversation to keep costs down.
-              </span>
-            </div>
+          {contextNote && (
+            <p className="mb-2 text-xs text-muted-foreground">{contextNote}</p>
           )}
           <div className="flex items-end gap-2">
             <Textarea
@@ -565,13 +529,13 @@ export function AIChat({ pageId }: AIChatProps) {
               onChange={handleInput}
               onKeyDown={handleKeyDown}
               placeholder="Ask about this page... (Enter to send, Shift+Enter for new line)"
-              disabled={isStreaming || contextFull}
+              disabled={isStreaming}
               rows={1}
               className="flex-1 resize-none text-sm leading-relaxed min-h-[40px] max-h-[120px] overflow-y-auto"
             />
             <Button
               onClick={handleSend}
-              disabled={!input.trim() || isStreaming || contextFull}
+              disabled={!input.trim() || isStreaming}
               size="icon"
               className="h-10 w-10 shrink-0"
             >
