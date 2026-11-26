@@ -5,7 +5,8 @@ import { createOllama } from 'ollama-ai-provider-v2';
 import { decrypt } from '@/lib/crypto';
 import { getOrCreateSettings } from '@/lib/settings';
 import { rootLogger } from '@/lib/logging';
-import { DEFAULT_MODEL_LISTS } from './defaults';
+import { DEFAULT_MODEL_ID, withCurrentDefaults } from './defaults';
+import { supportsEffort, type AiEffort } from './effort';
 import type { ProviderName, ProviderConfig, AiSurface, AiModelLists } from './types';
 
 const log = rootLogger.child({ module: 'ai-providers' });
@@ -59,9 +60,12 @@ export async function getProviderConfig(
   const modelField = surface === 'chat' ? 'aiChatModelId'
     : surface === 'explore' ? 'aiExploreModelId'
     : 'aiRecsModelId';
+  const effortField = surface === 'chat' ? 'aiChatEffort'
+    : surface === 'explore' ? 'aiExploreEffort'
+    : 'aiRecsEffort';
 
   const provider = (settings[providerField] as ProviderName) || 'anthropic';
-  const modelId = (settings[modelField] as string) || DEFAULT_MODEL_LISTS.anthropic[1].id;
+  const modelId = (settings[modelField] as string) || DEFAULT_MODEL_ID;
 
   // Resolve API key based on provider
   const apiKey = await resolveApiKey(provider, settings);
@@ -70,7 +74,9 @@ export async function getProviderConfig(
     baseUrl = normalizeOllamaUrl(settings.aiOllamaBaseUrl).api;
   }
 
-  return { provider, modelId, apiKey, baseUrl };
+  const effort = settings[effortField] as AiEffort;
+
+  return { provider, modelId, effort, apiKey, baseUrl };
 }
 
 /**
@@ -78,7 +84,7 @@ export async function getProviderConfig(
  */
 export async function getModelLists(): Promise<AiModelLists> {
   const settings = await getOrCreateSettings();
-  return (settings.aiModelLists as AiModelLists | null) ?? DEFAULT_MODEL_LISTS;
+  return withCurrentDefaults(settings.aiModelLists as AiModelLists | null);
 }
 
 /**
@@ -129,4 +135,26 @@ async function resolveApiKey(
     case 'ollama':
       return undefined; // Ollama uses baseUrl, no API key
   }
+}
+
+/**
+ * Generation settings for a surface. Reasoning effort comes from the saved
+ * per-surface setting and is sent only to models that accept it. Output
+ * limits are left to the provider SDK (each model's maximum) except for the
+ * non-streamed recommendations call; thinking counts against that limit.
+ */
+export function getGenerationOptions(
+  config: ProviderConfig,
+  surface: AiSurface,
+): { maxOutputTokens?: number; providerOptions?: Record<string, Record<string, string>> } {
+  const { provider, modelId, effort } = config;
+  return {
+    ...(surface === 'recs' && { maxOutputTokens: 16000 }),
+    ...(supportsEffort(provider, modelId) && {
+      providerOptions:
+        provider === 'anthropic'
+          ? { anthropic: { effort } }
+          : { openai: { reasoningEffort: effort } },
+    }),
+  };
 }

@@ -1062,15 +1062,17 @@ All conditions OR'd together (any one triggers a scrape):
 
 | Surface | Default Provider | Default Model |
 |---------|-----------------|---------------|
-| Chat | Anthropic | claude-sonnet-4-6 |
-| Explore | Anthropic | claude-sonnet-4-6 |
-| Recommendations | Anthropic | claude-haiku-4-5-20251001 |
+| Chat | Anthropic | claude-sonnet-5-5 |
+| Explore | Anthropic | claude-sonnet-5-5 |
+| Recommendations | Anthropic | claude-sonnet-5-5 |
+
+Each surface also has a reasoning-effort setting (`aiChatEffort`, `aiExploreEffort`, `aiRecsEffort`: low, medium, high, xhigh, max; defaults medium, medium, low). It is sent only to models that accept it (`src/lib/ai/effort.ts`).
 
 #### Available Models
 
-- **Anthropic**: claude-haiku-4-5-20251001, claude-sonnet-4-6, claude-opus-4-6
-- **OpenAI**: gpt-4o, gpt-4o-mini, gpt-4.1, gpt-4.1-mini
-- **Google**: gemini-2.5-pro, gemini-2.5-flash
+- **Anthropic**: claude-haiku-5-5, claude-sonnet-5-5, claude-opus-5-5
+- **OpenAI**: gpt-6-luna, gpt-6.2-sol, gpt-6.2-astra
+- **Google**: gemini-3.5-flash-lite, gemini-4-hydrogen, gemini-4-carbon
 - **Ollama**: Configurable via `aiOllamaBaseUrl`
 
 #### AI Defaults (`src/config/ai-defaults.ts`)

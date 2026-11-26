@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 import { getAiSettings, getOrCreateSettings } from '@/lib/settings';
 import { getProfileById } from '@/config/ai-profiles';
 import { getToolInstructions, allTools } from '@/lib/ai/tools';
-import { getProviderConfig, getProviderModel } from '@/lib/ai/providers';
+import { getGenerationOptions, getProviderConfig, getProviderModel } from '@/lib/ai/providers';
 import { DEFAULT_CHAT_SYSTEM_PROMPT } from '@/config/ai-defaults';
 import { createChatLogger } from '@/lib/logging/journeys';
 
@@ -122,6 +122,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const result = streamText({
       model,
+      ...getGenerationOptions(config, 'chat'),
       system: systemPrompt,
       messages: await convertToModelMessages(messages),
       tools: allTools,

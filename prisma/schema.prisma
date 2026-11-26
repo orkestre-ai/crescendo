@@ -365,11 +365,15 @@ model AppSettings {
 
   // Per-surface model selection
   aiChatProvider           String    @default("anthropic")
-  aiChatModelId            String    @default("claude-sonnet-4-6")
+  aiChatModelId            String    @default("claude-sonnet-5-5")
   aiExploreProvider        String    @default("anthropic")
-  aiExploreModelId         String    @default("claude-sonnet-4-6")
+  aiExploreModelId         String    @default("claude-sonnet-5-5")
   aiRecsProvider           String    @default("anthropic")
-  aiRecsModelId            String    @default("claude-haiku-4-5-20251001")
+  aiRecsModelId            String    @default("claude-sonnet-5-5")
+  // Reasoning effort per surface: low | medium | high | xhigh | max
+  aiChatEffort             String    @default("medium")
+  aiExploreEffort          String    @default("medium")
+  aiRecsEffort             String    @default("low")
 
   // Model lists per provider (JSON: { anthropic: [...], openai: [...], google: [...], ollama: [...] })
   aiModelLists             Json?

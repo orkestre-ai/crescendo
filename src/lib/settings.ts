@@ -11,7 +11,8 @@ import type {
 import type { SettingsResponse, SettingsUpdateRequest } from '@/types/settings';
 import type { ReportingCurrency } from '@/types/fundraising';
 import { DEFAULT_CONTEXT_PROFILES, type ContextProfile } from '@/config/ai-profiles';
-import { DEFAULT_MODEL_LISTS } from '@/lib/ai/defaults';
+import { withCurrentDefaults } from '@/lib/ai/defaults';
+import type { AiEffort } from '@/lib/ai/effort';
 import type { AiModelLists } from '@/lib/ai/types';
 import type { ProviderName } from '@/lib/ai/types';
 
@@ -296,13 +297,16 @@ export async function getSettingsResponse(): Promise<SettingsResponse> {
         isConfigured: !!settings.aiOllamaBaseUrl,
         baseUrl: settings.aiOllamaBaseUrl,
       },
-      modelLists: (settings.aiModelLists as AiModelLists | null) ?? DEFAULT_MODEL_LISTS,
+      modelLists: withCurrentDefaults(settings.aiModelLists as AiModelLists | null),
       chatProvider: settings.aiChatProvider,
       chatModelId: settings.aiChatModelId,
       exploreProvider: settings.aiExploreProvider,
       exploreModelId: settings.aiExploreModelId,
       recsProvider: settings.aiRecsProvider,
       recsModelId: settings.aiRecsModelId,
+      chatEffort: settings.aiChatEffort as AiEffort,
+      exploreEffort: settings.aiExploreEffort as AiEffort,
+      recsEffort: settings.aiRecsEffort as AiEffort,
     },
   };
 }
@@ -384,6 +388,9 @@ export async function updateSettings(data: SettingsUpdateRequest): Promise<AppSe
   if (data.aiExploreModelId !== undefined) updateData.aiExploreModelId = data.aiExploreModelId;
   if (data.aiRecsProvider !== undefined) updateData.aiRecsProvider = data.aiRecsProvider;
   if (data.aiRecsModelId !== undefined) updateData.aiRecsModelId = data.aiRecsModelId;
+  if (data.aiChatEffort !== undefined) updateData.aiChatEffort = data.aiChatEffort;
+  if (data.aiExploreEffort !== undefined) updateData.aiExploreEffort = data.aiExploreEffort;
+  if (data.aiRecsEffort !== undefined) updateData.aiRecsEffort = data.aiRecsEffort;
   if (data.aiModelLists !== undefined) updateData.aiModelLists = data.aiModelLists;
 
   if (data.ga4PropertyId !== undefined) {
