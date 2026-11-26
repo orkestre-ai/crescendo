@@ -4,7 +4,13 @@ import { prisma } from '@/lib/db';
 import { getAiSettings, getOrCreateSettings } from '@/lib/settings';
 import { getProfileById } from '@/config/ai-profiles';
 import { getToolInstructions, allTools } from '@/lib/ai/tools';
-import { getGenerationOptions, getProviderConfig, getProviderModel } from '@/lib/ai/providers';
+import {
+  contextFullStop,
+  getGenerationOptions,
+  getProviderConfig,
+  getProviderModel,
+} from '@/lib/ai/providers';
+import { getContextWindow, isContextFull } from '@/lib/ai/defaults';
 import { DEFAULT_CHAT_SYSTEM_PROMPT } from '@/config/ai-defaults';
 import { createChatLogger } from '@/lib/logging/journeys';
 
@@ -108,6 +114,24 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
     const model = getProviderModel(config.provider, config.modelId, config.apiKey, config.baseUrl);
 
+    // Refuse to continue a conversation whose last call already filled the
+    // model's context window; the user has to start a new one.
+    const contextWindow = getContextWindow(config.provider, config.modelId);
+    if (contextWindow && incomingConversationId) {
+      const lastReply = await prisma.message.findFirst({
+        where: { conversationId: incomingConversationId, role: 'assistant' },
+        orderBy: { createdAt: 'desc' },
+        select: { usage: true },
+      });
+      const used = (lastReply?.usage as { inputTokens?: number } | null)?.inputTokens ?? 0;
+      if (isContextFull(used, aiSettings.chatMaxTokens, contextWindow)) {
+        return NextResponse.json(
+          { error: 'This conversation has reached the model\'s context limit. Start a new conversation.' },
+          { status: 409 }
+        );
+      }
+    }
+
     // Create chat journey logger
     const chatLog = createChatLogger(incomingConversationId ?? 'new', id, config.modelId);
     const startTime = Date.now();
@@ -127,7 +151,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       system: systemPrompt,
       messages: await convertToModelMessages(messages),
       tools: allTools,
-      stopWhen: stepCountIs(10),
+      stopWhen: [stepCountIs(10), contextFullStop(config, aiSettings.chatMaxTokens)],
       onFinish: async ({ text, steps, usage }) => {
         try {
           // Extract tool calls from steps

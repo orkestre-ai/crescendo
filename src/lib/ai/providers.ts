@@ -2,14 +2,17 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createOllama } from 'ollama-ai-provider-v2';
+import type { streamText } from 'ai';
 import { decrypt } from '@/lib/crypto';
 import { getOrCreateSettings } from '@/lib/settings';
 import { rootLogger } from '@/lib/logging';
-import { DEFAULT_MODEL_ID, withCurrentDefaults } from './defaults';
+import { DEFAULT_MODEL_ID, getContextWindow, isContextFull, withCurrentDefaults } from './defaults';
 import { supportsEffort, type AiEffort } from './effort';
 import type { ProviderName, ProviderConfig, AiSurface, AiModelLists } from './types';
 
 const log = rootLogger.child({ module: 'ai-providers' });
+
+type ProviderOptions = NonNullable<Parameters<typeof streamText>[0]['providerOptions']>;
 
 /**
  * Normalize an Ollama base URL into root and API forms.
@@ -142,19 +145,45 @@ async function resolveApiKey(
  * per-surface setting and is sent only to models that accept it. Recs get a
  * fixed output cap; chat and explore callers pass the Max Response setting.
  * Thinking counts against the output cap.
+ *
+ * Chat and explore resend the history and tool results on every call, so
+ * Anthropic prompt caching is on for them (the repeated prefix bills at about
+ * a tenth). OpenAI and Gemini cache repeated prefixes automatically.
  */
 export function getGenerationOptions(
   config: ProviderConfig,
   surface: AiSurface,
-): { maxOutputTokens?: number; providerOptions?: Record<string, Record<string, string>> } {
+): { maxOutputTokens?: number; providerOptions?: ProviderOptions } {
   const { provider, modelId, effort } = config;
+  const withEffort = supportsEffort(provider, modelId);
+  const withCache = provider === 'anthropic' && surface !== 'recs';
+
+  let providerOptions: ProviderOptions | undefined;
+  if (provider === 'anthropic' && (withEffort || withCache)) {
+    providerOptions = {
+      anthropic: {
+        ...(withEffort && { effort }),
+        ...(withCache && { cacheControl: { type: 'ephemeral' } }),
+      },
+    };
+  } else if (provider === 'openai' && withEffort) {
+    providerOptions = { openai: { reasoningEffort: effort } };
+  }
+
   return {
     ...(surface === 'recs' && { maxOutputTokens: 16000 }),
-    ...(supportsEffort(provider, modelId) && {
-      providerOptions:
-        provider === 'anthropic'
-          ? { anthropic: { effort } }
-          : { openai: { reasoningEffort: effort } },
-    }),
+    ...(providerOptions && { providerOptions }),
+  };
+}
+
+/**
+ * Stop condition that ends a tool loop before the next step could overflow
+ * the model's context window. Never fires for models with an unknown window.
+ */
+export function contextFullStop(config: ProviderConfig, maxOutputTokens: number) {
+  const contextWindow = getContextWindow(config.provider, config.modelId);
+  return ({ steps }: { steps: { usage: { inputTokens?: number } }[] }) => {
+    const input = steps[steps.length - 1]?.usage.inputTokens ?? 0;
+    return contextWindow !== undefined && isContextFull(input, maxOutputTokens, contextWindow);
   };
 }

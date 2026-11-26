@@ -16,6 +16,8 @@ import {
   Check,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getContextWindow, isContextFull } from '@/lib/ai/defaults';
+import type { ProviderName } from '@/lib/ai/types';
 import { ToolActivityPanel } from './tool-activity-panel';
 import {
   extractToolEntries,
@@ -144,7 +146,11 @@ export function AIChat({ pageId }: AIChatProps) {
   const [conversations, setConversations] = useState<ConversationListItem[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [toolExpandState, setToolExpandState] = useState<Record<string, boolean>>({});
-  const [maxContext, setMaxContext] = useState<number | null>(null);
+  const [limits, setLimits] = useState<{
+    maxContext: number;
+    maxTokens: number;
+    contextWindow?: number;
+  } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortConvRef = useRef<AbortController | null>(null);
@@ -209,16 +215,41 @@ export function AIChat({ pageId }: AIChatProps) {
     }
     return null;
   }, [messages]);
-  const overContext = maxContext !== null && contextTokens !== null && contextTokens > maxContext;
+  const contextFull =
+    limits?.contextWindow !== undefined &&
+    contextTokens !== null &&
+    isContextFull(contextTokens, limits.maxTokens, limits.contextWindow);
+  const overContext =
+    !contextFull && limits !== null && contextTokens !== null && contextTokens > limits.maxContext;
 
   useEffect(() => {
     fetch('/api/settings')
       .then((res) => (res.ok ? res.json() : null))
-      .then((data) => setMaxContext(data?.ai?.chatMaxContext ?? null))
+      .then((data) => {
+        if (!data) return;
+        setLimits({
+          maxContext: data.ai.chatMaxContext,
+          maxTokens: data.ai.chatMaxTokens,
+          contextWindow: getContextWindow(
+            data.providers.chatProvider as ProviderName,
+            data.providers.chatModelId
+          ),
+        });
+      })
       .catch(() => {
-        // No limit known -- skip the warning
+        // No limits known -- skip the warnings; the server still refuses a full conversation
       });
   }, []);
+
+  // Route errors arrive as the raw JSON body ({"error": "..."}); show just the message.
+  const errorMessage = useMemo(() => {
+    if (!error) return null;
+    try {
+      return (JSON.parse(error.message) as { error?: string }).error ?? error.message;
+    } catch {
+      return error.message;
+    }
+  }, [error]);
 
   // ── Extract tool entries from current messages (memoized) ───────
   const toolEntries = useMemo(() => extractToolEntries(messages), [messages]);
@@ -295,7 +326,7 @@ export function AIChat({ pageId }: AIChatProps) {
   };
 
   const handleSend = useCallback(() => {
-    if (!input.trim() || isStreaming) return;
+    if (!input.trim() || isStreaming || contextFull) return;
 
     const userContent = input.trim();
 
@@ -314,7 +345,7 @@ export function AIChat({ pageId }: AIChatProps) {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
-  }, [input, isStreaming, messages.length, sendMessage]);
+  }, [input, isStreaming, contextFull, messages.length, sendMessage]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -498,20 +529,32 @@ export function AIChat({ pageId }: AIChatProps) {
           {error && (
             <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
               <AlertTriangle className="h-4 w-4 shrink-0" />
-              <span className="flex-1">{error.message}</span>
+              <span className="flex-1">{errorMessage}</span>
             </div>
           )}
         </div>
 
         {/* Input bar */}
         <div className="border-t bg-background px-4 py-3">
+          {contextFull && (
+            <div className="mb-2 flex items-start gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+              <span className="flex-1">
+                This conversation has reached the model&apos;s context limit (
+                {limits!.contextWindow!.toLocaleString()} tokens).
+              </span>
+              <button onClick={handleNewConversation} className="font-medium underline shrink-0">
+                Start a new conversation
+              </button>
+            </div>
+          )}
           {overContext && (
             <div className="mb-2 flex items-start gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
               <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
               <span>
                 This conversation sends about {contextTokens!.toLocaleString()} tokens per message,
-                over your Max Context of {maxContext!.toLocaleString()}. Start a new conversation to
-                keep costs down.
+                over your Max Context of {limits!.maxContext.toLocaleString()}. Start a new
+                conversation to keep costs down.
               </span>
             </div>
           )}
@@ -522,13 +565,13 @@ export function AIChat({ pageId }: AIChatProps) {
               onChange={handleInput}
               onKeyDown={handleKeyDown}
               placeholder="Ask about this page... (Enter to send, Shift+Enter for new line)"
-              disabled={isStreaming}
+              disabled={isStreaming || contextFull}
               rows={1}
               className="flex-1 resize-none text-sm leading-relaxed min-h-[40px] max-h-[120px] overflow-y-auto"
             />
             <Button
               onClick={handleSend}
-              disabled={!input.trim() || isStreaming}
+              disabled={!input.trim() || isStreaming || contextFull}
               size="icon"
               className="h-10 w-10 shrink-0"
             >

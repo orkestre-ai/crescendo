@@ -1068,6 +1068,13 @@ All conditions OR'd together (any one triggers a scrape):
 
 Each surface also has a reasoning-effort setting (`aiChatEffort`, `aiExploreEffort`, `aiRecsEffort`: low, medium, high, xhigh, max; defaults medium, medium, low). It is sent only to models that accept it (`src/lib/ai/effort.ts`).
 
+Chat and explore limits:
+
+- **Max Response** (`aiChatMaxTokens`, default 32,000, max 64,000) is the output cap for chat and explore calls, reasoning included. Recommendations use a fixed 16,000.
+- **Max Context** (`aiChatMaxContext`, default 100,000) only warns: chat shows a banner once a call's input passes it.
+- **Model context window** (`contextWindow` on the built-in model lists in `src/lib/ai/defaults.ts`) is a hard stop. When the last call's input plus Max Response reaches 95% of the window, the chat route refuses new messages (409) and the chat asks for a new conversation; tool loops in chat and explore stop at the same point. Models without a known window (user-added, Ollama) have no hard stop.
+- **Prompt caching** is on for Anthropic chat and explore calls, so resent history bills at the cache-read rate. OpenAI and Gemini cache automatically.
+
 #### Available Models
 
 - **Anthropic**: claude-haiku-5-5, claude-sonnet-5-5, claude-opus-5-5

@@ -469,10 +469,11 @@ export function AiModelsPanel({ settings, onSettingsUpdate }: AiModelsPanelProps
                   if (!isNaN(v)) setChatMaxContext(v);
                 }}
                 min={1000}
-                max={200000}
+                max={1000000}
               />
               <p className="text-xs text-muted-foreground">
-                Chat shows a warning when a conversation&apos;s input passes this. Nothing is trimmed.
+                Chat warns when a conversation&apos;s input passes this. Conversations stop at the
+                model&apos;s own limit.
               </p>
             </div>
             <div className="space-y-2">
