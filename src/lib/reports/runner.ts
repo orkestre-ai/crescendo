@@ -6,6 +6,8 @@ import { allTools, getToolInstructions } from '@/lib/ai/tools';
 import { rootLogger } from '@/lib/logging';
 import { interpolateTemplate } from '@/lib/prompt-utils';
 import { getOrCreateSettings } from '@/lib/settings';
+import { lintProse, withProseWarnings } from './blocks/lint';
+import { runBlocks } from './blocks/resolve';
 import { pruneMessages } from './context';
 import { datasetQueryKeys } from './ledger';
 import { recheckRun, type RecheckResult } from './recheck';
@@ -71,6 +73,17 @@ Never type a number you worked out yourself, and never do arithmetic in your hea
 
 A percent figure is stored as a fraction (0.25 means 25%). GA4 rates are already fractions. Do not multiply by 100.
 
+## The document
+
+The report a person reads is a list of blocks, in page order: a header, section headings, cards, tiles, tables, charts, cautions and prose. Call list_blocks once to see each block's key, what it is for and the shape of data it takes, then place blocks with add_block. update_block replaces a block's data and remove_block takes one out.
+
+A block never holds a number you typed:
+- where a block's shape marks a slot "x-ref": "figure", give { "figure": "<figure key>" };
+- where it marks a slot "x-ref": "dataset", give { "dataset": "<dataset key>" };
+- inside any text, write {{fig:<figure key>}} where the number belongs, and Crescendo puts the figure there as the ledger shows it.
+
+So record the figures and define the datasets a block needs before you add it. add_block checks the data against the ledger and draws the block once; if something is wrong it tells you what, and you fix it and call it again. Numbers typed into wording are checked against the ledger afterwards and listed as warnings on the report. Dates, years and times of day are fine to type.
+
 ## Rules for queries
 
 - Dates are absolute, YYYY-MM-DD. Today is given in your first message. End every date range at yesterday or earlier: today's data is incomplete.
@@ -79,7 +92,7 @@ A percent figure is stored as a fraction (0.25 means 25%). GA4 rates are already
 
 ## Finishing
 
-Use note for findings, doubts and decisions about method as you go. When the report is complete, call finish_report. Crescendo then runs every saved query a second time and recomputes the ledger; if a figure changed you are told and get a short turn to revise. If you cannot continue, because tracking is broken or the data does not exist, call needs_attention with the reason. The run cannot be paused or resumed.`;
+Use note for findings, doubts and decisions about method as you go. When the document is complete, call finish_report; it is refused while the report has no blocks. Crescendo then runs every saved query a second time and recomputes the ledger; if a figure changed you are told and get a short turn to revise. If you cannot continue, because tracking is broken or the data does not exist, call needs_attention with the reason. The run cannot be paused or resumed.`;
 
 const NUDGE =
   'Carry on. When the report is complete call finish_report. If you cannot continue, call needs_attention with the reason.';
@@ -396,7 +409,37 @@ async function drive(
   }
 
   if (await interrupted()) return;
+  const typed = await lintRun(runId, store);
+  if (typed > 0) {
+    await store.appendEvent(
+      runId,
+      'warning',
+      `${typed} number(s) typed into the wording match no figure in the ledger. They are listed under Warnings.`
+    );
+  }
   await end('COMPLETED', null);
+}
+
+/**
+ * Check the wording of a run's blocks for typed numbers and store what is
+ * found in the run's warnings, beside the warnings of other kinds. Returns
+ * how many were found. It never fails a run.
+ */
+export async function lintRun(runId: string, store: ReportStore = prismaStore): Promise<number> {
+  const run = await store.getRun(runId);
+  if (!run) return 0;
+  const [figures, datasets, defs] = await Promise.all([
+    store.listFigures(runId),
+    store.listDatasets(runId),
+    store.listBlockDefs(),
+  ]);
+  const prose = lintProse(
+    runBlocks(run.blocks),
+    { figures, datasets, currencyCode: run.currencyCode },
+    defs.filter((def) => def.isCurrent)
+  );
+  await store.updateRun(runId, { warnings: withProseWarnings(run.warnings, prose) });
+  return prose.length;
 }
 
 /**

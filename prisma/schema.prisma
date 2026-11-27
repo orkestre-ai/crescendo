@@ -712,3 +712,29 @@ model ReportEvent {
 
   @@unique([runId, seq])
 }
+
+/// A block a report is built from: the shape of data it accepts, a Liquid
+/// template and its styles. An edit adds a version; old versions are kept so
+/// a report already sent still draws as it did.
+model ReportBlockDef {
+  id             String   @id @default(cuid())
+  key            String
+  version        Int      @default(1)
+  isCurrent      Boolean  @default(true) // The version new reports use
+  name           String
+  description    String   @db.Text
+  dataSchema     Json     // What the block accepts; no number type, only ledger references
+  template       String   @db.Text
+  css            String   @db.Text
+  sampleData     Json     // Example data, with references already resolved
+  origin         String   @default("builtin")  // builtin | builder | imported
+  status         String   @default("approved") // approved | unreviewed | disabled
+  review         Json?    // The critic's scores, for a block the builder made
+  createdByRunId String?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([key, version])
+  @@index([isCurrent, status])
+}

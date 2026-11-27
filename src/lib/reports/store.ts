@@ -1,5 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
+import { builtinBlockDefs, ensureBuiltinBlocks } from './blocks/builtin';
+import type { BlockDef } from './blocks/types';
 import {
   ACTIVE_STATUSES,
   type DefinitionSnapshot,
@@ -25,6 +27,7 @@ export type ReportRunPatch = Partial<
     ReportRun,
     | 'status'
     | 'statusReason'
+    | 'blocks'
     | 'warnings'
     | 'usage'
     | 'stepCount'
@@ -78,6 +81,9 @@ export interface ReportStore {
 
   upsertDataset(dataset: ReportDataset): Promise<void>;
   listDatasets(runId: string): Promise<ReportDataset[]>;
+
+  /** Every stored block, in every version. The built-ins are seeded on first read. */
+  listBlockDefs(): Promise<BlockDef[]>;
 }
 
 const json = (value: unknown) => value as Prisma.InputJsonValue;
@@ -90,6 +96,7 @@ type FigureRow = Prisma.ReportFigureGetPayload<object>;
 type DatasetRow = Prisma.ReportDatasetGetPayload<object>;
 type EventRow = Prisma.ReportEventGetPayload<object>;
 type DefinitionRow = Prisma.ReportDefinitionGetPayload<object>;
+type BlockDefRow = Prisma.ReportBlockDefGetPayload<object>;
 
 const toRun = (row: RunRow): ReportRun => ({
   id: row.id,
@@ -172,6 +179,20 @@ const toDefinition = (row: DefinitionRow): ReportDefinition => ({
   sortOrder: row.sortOrder,
 });
 
+const toBlockDef = (row: BlockDefRow): BlockDef => ({
+  key: row.key,
+  version: row.version,
+  isCurrent: row.isCurrent,
+  name: row.name,
+  description: row.description,
+  dataSchema: row.dataSchema as unknown as BlockDef['dataSchema'],
+  template: row.template,
+  css: row.css,
+  sampleData: row.sampleData,
+  origin: row.origin as BlockDef['origin'],
+  status: row.status as BlockDef['status'],
+});
+
 export const prismaStore: ReportStore = {
   async findDefinition(where) {
     const row = await prisma.reportDefinition.findUnique({ where });
@@ -199,12 +220,13 @@ export const prismaStore: ReportStore = {
   },
 
   async updateRun(id, patch) {
-    const { usage, warnings, ...rest } = patch;
+    const { usage, warnings, blocks, ...rest } = patch;
     const row = await prisma.reportRun.update({
       where: { id },
       data: {
         ...rest,
         ...(usage !== undefined && { usage: jsonOrNull(usage) }),
+        ...(blocks !== undefined && { blocks: json(blocks) }),
         ...(warnings !== undefined && { warnings: json(warnings) }),
       },
     });
@@ -305,11 +327,22 @@ export const prismaStore: ReportStore = {
     });
     return rows.map(toDataset);
   },
+
+  async listBlockDefs() {
+    await ensureBuiltinBlocks();
+    const rows = await prisma.reportBlockDef.findMany({
+      orderBy: [{ createdAt: 'asc' }, { key: 'asc' }, { version: 'asc' }],
+    });
+    return rows.map(toBlockDef);
+  },
 };
 
-/** A store that lives in memory, for tests. */
-export function memoryStore(seed: { definitions?: ReportDefinition[] } = {}): ReportStore {
+/** A store that lives in memory, for tests. Its blocks are the built-ins unless given others. */
+export function memoryStore(
+  seed: { definitions?: ReportDefinition[]; blockDefs?: BlockDef[] } = {}
+): ReportStore {
   const definitions = seed.definitions ?? [];
+  const blockDefs = seed.blockDefs ?? builtinBlockDefs();
   const runs = new Map<string, ReportRun>();
   const events: ReportEvent[] = [];
   const queries: ReportQuery[] = [];
@@ -430,6 +463,10 @@ export function memoryStore(seed: { definitions?: ReportDefinition[] } = {}): Re
 
     async listDatasets(runId) {
       return copy(datasets.filter((d) => d.runId === runId));
+    },
+
+    async listBlockDefs() {
+      return copy(blockDefs);
     },
   };
 }

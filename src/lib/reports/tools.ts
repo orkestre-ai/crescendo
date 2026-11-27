@@ -1,6 +1,9 @@
 import { tool, type Tool, type ToolSet } from 'ai';
 import { z } from 'zod';
 import { redactEmails } from '@/lib/ai-tools/redact';
+import { runBlocks } from './blocks/resolve';
+import type { BlockDef, BlockInstance, Ledger } from './blocks/types';
+import { validateBlockData } from './blocks/validate';
 import {
   computeDataset,
   computeFigure,
@@ -465,13 +468,154 @@ export function createReportTools(
     }),
   });
 
+  // Blocks: the document, in page order
+  const readBlocks = async () => runBlocks((await store.getRun(runId))?.blocks ?? []);
+  const readLedger = async (): Promise<Ledger> => ({
+    figures: await store.listFigures(runId),
+    datasets: await store.listDatasets(runId),
+    currencyCode: opts.currencyCode,
+  });
+  const usableBlocks = async () =>
+    (await store.listBlockDefs()).filter((def) => def.isCurrent && def.status !== 'disabled');
+
+  // The issues go back to the model as text, so it can fix the data and try again.
+  const checkBlockData = async (def: BlockDef, data: unknown, action: string) => {
+    const issues = validateBlockData(def, data, await readLedger());
+    if (issues.length > 0) {
+      throw new LedgerError(
+        `The block was not ${action}. Fix this and call the tool again:\n${issues
+          .map((issue) => `- ${issue.message}`)
+          .join('\n')}`
+      );
+    }
+  };
+
+  const blockData = z
+    .record(z.string(), z.unknown())
+    .describe(
+      'The block\'s data, in the shape list_blocks gives for it. A slot marked "x-ref": "figure" takes { "figure": "<figure key>" }; one marked "x-ref": "dataset" takes { "dataset": "<dataset key>" }. Never a number'
+    );
+
+  const listBlocks = tool({
+    description:
+      "List the blocks a report can be built from: each one's key, what it is for, and the shape of data it takes. Call this before the first add_block.",
+    inputSchema: z.object({}),
+    execute: guarded('list_blocks', async () => {
+      const defs = await usableBlocks();
+      await log('tool', `list_blocks: ${defs.length} blocks`);
+      return {
+        blocks: defs.map((def) => ({
+          key: def.key,
+          name: def.name,
+          description: def.description,
+          dataSchema: def.dataSchema,
+        })),
+        references:
+          'In block data, a number is never typed. A slot marked "x-ref": "figure" takes { "figure": "<key>" }; a slot marked "x-ref": "dataset" takes { "dataset": "<key>" }. Inside any text, {{fig:<key>}} is replaced by that figure as the ledger shows it.',
+      };
+    }),
+  });
+
+  const addBlock = tool({
+    description:
+      'Add a block to the report. It is checked against the ledger and drawn once before it is kept; if something is wrong you are told what. Blocks appear in the order they are added, unless "after" names the block to follow.',
+    inputSchema: z.object({
+      block: z.string().describe('A block key from list_blocks, e.g. "stat_tiles"'),
+      data: blockData,
+      after: z
+        .string()
+        .optional()
+        .describe('The id of the block this one follows, e.g. "b3". Leave out to add at the end'),
+    }),
+    execute: guarded(
+      'add_block',
+      async (input: { block: string; data: Record<string, unknown>; after?: string }) => {
+        const defs = await usableBlocks();
+        const def = defs.find((d) => d.key === input.block);
+        if (!def) {
+          throw new LedgerError(
+            `There is no block "${input.block}". Blocks: ${defs.map((d) => d.key).join(', ')}.`
+          );
+        }
+        const blocks = await readBlocks();
+        const at = input.after ? blocks.findIndex((b) => b.id === input.after) : blocks.length - 1;
+        if (input.after && at === -1) {
+          throw new LedgerError(
+            `There is no block with id "${input.after}". Blocks so far: ${blocks.map((b) => b.id).join(', ') || 'none'}.`
+          );
+        }
+        await checkBlockData(def, input.data, 'added');
+
+        const last = Math.max(0, ...blocks.map((b) => Number(b.id.slice(1)) || 0));
+        const added: BlockInstance = {
+          id: `b${last + 1}`,
+          block: def.key,
+          version: def.version,
+          data: input.data,
+        };
+        blocks.splice(at + 1, 0, added);
+        await store.updateRun(runId, { blocks });
+        await log('tool', `add_block ${added.id}: ${def.key}`, { block: added.id });
+        return { id: added.id, position: at + 2, blocks: blocks.length };
+      }
+    ),
+  });
+
+  const updateBlock = tool({
+    description:
+      'Replace the data of a block already in the report, for example to revise its wording. It is checked the same way as add_block.',
+    inputSchema: z.object({
+      id: z.string().describe('The block id add_block returned, e.g. "b3"'),
+      data: blockData,
+    }),
+    execute: guarded(
+      'update_block',
+      async (input: { id: string; data: Record<string, unknown> }) => {
+        const blocks = await readBlocks();
+        const found = blocks.find((b) => b.id === input.id);
+        if (!found) throw new LedgerError(`There is no block with id "${input.id}".`);
+        const defs = await store.listBlockDefs();
+        const def =
+          defs.find((d) => d.key === found.block && d.version === found.version) ??
+          defs.find((d) => d.key === found.block && d.isCurrent);
+        if (!def) throw new LedgerError(`The block "${found.block}" is no longer available.`);
+        await checkBlockData(def, input.data, 'updated');
+
+        found.data = input.data;
+        await store.updateRun(runId, { blocks });
+        await log('tool', `update_block ${found.id}: ${found.block}`, { block: found.id });
+        return { id: found.id, ok: true };
+      }
+    ),
+  });
+
+  const removeBlock = tool({
+    description: 'Take a block out of the report.',
+    inputSchema: z.object({ id: z.string().describe('The block id, e.g. "b3"') }),
+    execute: guarded('remove_block', async (input: { id: string }) => {
+      const blocks = await readBlocks();
+      const kept = blocks.filter((b) => b.id !== input.id);
+      if (kept.length === blocks.length) {
+        throw new LedgerError(`There is no block with id "${input.id}".`);
+      }
+      await store.updateRun(runId, { blocks: kept });
+      await log('tool', `remove_block ${input.id}`, { block: input.id });
+      return { id: input.id, blocks: kept.length };
+    }),
+  });
+
   const finishReport = tool({
     description:
-      'Say the report is finished. Crescendo then re-runs every saved query and recomputes the ledger. If a figure changed you are told, and get a short turn to revise.',
+      'Say the report is finished. It must have at least one block. Crescendo then re-runs every saved query and recomputes the ledger. If a figure changed you are told, and get a short turn to revise.',
     inputSchema: z.object({
       summary: z.string().min(1).describe('Two or three sentences on what the report found'),
     }),
     execute: guarded('finish_report', async (input: { summary: string }) => {
+      if ((await readBlocks()).length === 0) {
+        throw new LedgerError(
+          'The report has no blocks yet, so there is nothing to read. Build the document with list_blocks and add_block, then call finish_report again.'
+        );
+      }
       signals.finish = { summary: input.summary };
       await log('summary', input.summary);
       return { ok: true };
@@ -512,6 +656,10 @@ export function createReportTools(
       record_figure: recordFigure,
       define_dataset: defineDataset,
       read_query: readQuery,
+      list_blocks: listBlocks,
+      add_block: addBlock,
+      update_block: updateBlock,
+      remove_block: removeBlock,
       note,
       finish_report: finishReport,
       needs_attention: needsAttention,

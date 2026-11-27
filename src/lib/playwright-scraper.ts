@@ -58,7 +58,7 @@ function trackScrapeEnd(): void {
 // Browser singleton -- reuse across scrapes for performance
 let browserInstance: Browser | null = null;
 
-async function getBrowser(): Promise<Browser> {
+export async function getBrowser(): Promise<Browser> {
   if (!browserInstance || !browserInstance.isConnected()) {
     browserInstance = await chromium.launch({
       headless: true,

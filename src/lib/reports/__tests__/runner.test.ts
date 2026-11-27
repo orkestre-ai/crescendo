@@ -141,6 +141,12 @@ const FIGURES: Call[] = [
   },
 ];
 const FINISH: Call = { tool: 'finish_report', input: { summary: 'Three days reported.' } };
+const STARTING_BLOCK = {
+  id: 'b1',
+  block: 'prose',
+  version: 1,
+  data: { paragraphs: ['Three days were reported.'] },
+};
 
 async function start(
   store: ReportStore,
@@ -157,6 +163,10 @@ async function start(
     },
     { store }
   );
+  // finish_report is refused while a report has no blocks. These tests are
+  // about the loop, so the run starts with one; blocks-render.test.ts covers
+  // the block tools and the refusal.
+  await store.updateRun(runId, { blocks: [STARTING_BLOCK] });
   const deps: RunDeps = {
     store,
     model,
@@ -277,13 +287,17 @@ test('runReport: the model is told the date, the ledger rules and the definition
   // The report tools are always there, beside the definition's data tool.
   const names = (model.doGenerateCalls[0].tools ?? []).map((t) => t.name).sort();
   assert.deepEqual(names, [
+    'add_block',
     'define_dataset',
     'fake_report',
     'finish_report',
+    'list_blocks',
     'needs_attention',
     'note',
     'read_query',
     'record_figure',
+    'remove_block',
+    'update_block',
   ]);
 });
 
