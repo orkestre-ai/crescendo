@@ -180,6 +180,13 @@ export async function POST(
       messages: await convertToModelMessages([userMessage]),
       tools: getTools(enabledTools),
       stopWhen: [stepCountIs(10), contextFullStop(config, aiSettings.chatMaxTokens)],
+      // Without this, a provider error mid-run is swallowed and nothing is saved or logged
+      onError: ({ error }) => {
+        exploreLog.error(
+          error instanceof Error ? error.message : String(error),
+          error instanceof Error ? error : undefined
+        );
+      },
       onFinish: async ({ steps, usage }) => {
         try {
           // Leave any compaction summary out of the saved response
