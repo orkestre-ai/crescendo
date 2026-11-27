@@ -39,6 +39,8 @@ export interface DefinitionFormData {
   maxSteps: number;
   maxMinutes: number;
   enabled: boolean;
+  /** "HH:MM" in Toronto, or null when it is not scheduled. */
+  scheduleDailyAt: string | null;
 }
 
 const TYPE_LABELS: Record<ReportInputField['type'], string> = {
@@ -106,6 +108,7 @@ export function DefinitionForm({
       maxSteps: DEFAULT_MAX_STEPS,
       maxMinutes: DEFAULT_MAX_MINUTES,
       enabled: true,
+      scheduleDailyAt: null,
     }
   );
   const [fields, setFields] = useState<FieldDraft[]>(() => (initial?.inputs ?? []).map(toDraft));
@@ -480,6 +483,22 @@ export function DefinitionForm({
           onCheckedChange={(checked) => set('enabled', checked)}
         />
         <Label htmlFor="enabled">Enabled (can be started from Reports)</Label>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="schedule-daily-at">Run every day at</Label>
+        <Input
+          id="schedule-daily-at"
+          type="time"
+          value={form.scheduleDailyAt ?? ''}
+          onChange={(e) => set('scheduleDailyAt', e.target.value || null)}
+          className="w-36"
+        />
+        <p className="text-xs text-muted-foreground">
+          Toronto time. Crescendo starts the report once a day after this time, with each field at
+          its default, so every required field needs one. If another report is running it waits.
+          Leave it empty to start the report only by hand.
+        </p>
       </div>
 
       <div className="flex gap-3">

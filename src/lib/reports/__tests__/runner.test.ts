@@ -850,6 +850,7 @@ test('startReportRun: a run copies its definition, so later edits do not change 
     isDefault: false,
     enabled: true,
     sortOrder: 0,
+    scheduleDailyAt: null,
   };
   const store = memoryStore({ definitions: [definition] });
   const { runId } = await startReportRun(

@@ -19,6 +19,9 @@ export const DEFAULT_MAX_MINUTES = 120;
 export const MAX_STEPS_LIMIT = 2000;
 export const MAX_MINUTES_LIMIT = 720;
 
+/** A daily schedule time, "HH:MM" from 00:00 to 23:59, in America/Toronto. */
+export const SCHEDULE_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+
 const fields = {
   name: z.string().trim().min(1, 'Name is required').max(100),
   description: z.string().max(500),
@@ -30,6 +33,10 @@ const fields = {
   maxSteps: z.number().int().min(1).max(MAX_STEPS_LIMIT),
   maxMinutes: z.number().int().min(1).max(MAX_MINUTES_LIMIT),
   enabled: z.boolean(),
+  scheduleDailyAt: z
+    .string()
+    .regex(SCHEDULE_TIME, 'The daily time is HH:MM, from 00:00 to 23:59')
+    .nullable(),
 };
 
 /** A new definition. What is left out takes the usual value. */
@@ -40,6 +47,7 @@ export const definitionCreateSchema = z.object({
   maxSteps: fields.maxSteps.default(DEFAULT_MAX_STEPS),
   maxMinutes: fields.maxMinutes.default(DEFAULT_MAX_MINUTES),
   enabled: fields.enabled.default(true),
+  scheduleDailyAt: fields.scheduleDailyAt.optional(),
 });
 
 /** A change to a definition: only what is given is changed. */

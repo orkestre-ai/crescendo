@@ -7,7 +7,7 @@ import {
   type EnGivingRow,
 } from '../en-fundraising';
 import { RelativeDateError } from '../ga4-report';
-import { computeFigure, queryTable } from '@/lib/reports/ledger';
+import { computeDataset, computeFigure, queryTable } from '@/lib/reports/ledger';
 
 function day(
   date: string,
@@ -175,6 +175,52 @@ test('runEnFundraising: two date ranges add a dateRange column, named or numbere
     { date: '20251201', dateRange: 'date_range_0', donationCount: '2' },
     { date: '20251202', dateRange: 'date_range_0', donationCount: '5' },
     { date: '20241203', dateRange: 'date_range_1', donationCount: '3' },
+  ]);
+});
+
+test('runEnFundraising: nthDay lines up two years by day, and a dataset joins them on it', async () => {
+  // The same weekdays a year earlier: 364 days back.
+  const result = await runEnFundraising(
+    {
+      dateRanges: [
+        { startDate: '2025-12-01', endDate: '2025-12-02', name: 'this_year' },
+        { startDate: '2024-12-02', endDate: '2024-12-03', name: 'last_year' },
+      ],
+      dimensions: ['nthDay', 'date'],
+      metrics: ['totalAmount'],
+    },
+    memoryStore().store
+  );
+  assert.deepEqual(result.headers, ['nthDay', 'date', 'dateRange', 'totalAmount']);
+  assert.deepEqual(result.rows, [
+    { nthDay: '0000', date: '20251201', dateRange: 'this_year', totalAmount: '120.1' },
+    { nthDay: '0001', date: '20251202', dateRange: 'this_year', totalAmount: '500.2' },
+    { nthDay: '0001', date: '20241203', dateRange: 'last_year', totalAmount: '300' },
+  ]);
+  assert.deepEqual(result.missingDays, ['2024-12-02']);
+
+  const ctx = { queries: { q1: queryTable(result) }, figures: {} };
+  const running = computeDataset(
+    {
+      from: 'q1',
+      where: [{ column: 'dateRange', op: '=', value: 'this_year' }],
+      select: [{ column: 'date' }, { column: 'totalAmount', as: 'this_year', format: 'currency' }],
+      join: [
+        {
+          query: 'q1',
+          on: 'nthDay',
+          where: [{ column: 'dateRange', op: '=', value: 'last_year' }],
+          select: [{ column: 'totalAmount', as: 'last_year', format: 'currency' }],
+        },
+      ],
+      cumulative: ['this_year', 'last_year'],
+    },
+    ctx
+  );
+  // Last year's first day was not fetched (missingDays says so): its running total starts at zero.
+  assert.deepEqual(running.rows, [
+    ['20251201', 120.1, 0],
+    ['20251202', 620.3, 300],
   ]);
 });
 

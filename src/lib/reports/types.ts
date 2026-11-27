@@ -82,7 +82,12 @@ export interface ReportDefinition extends DefinitionSnapshot {
   isDefault: boolean;
   enabled: boolean;
   sortOrder: number;
+  /** "HH:MM" in America/Toronto: the schedule starts it once a day after this time. */
+  scheduleDailyAt: string | null;
 }
+
+/** Who started a run: a person, or the daily schedule. */
+export type ReportTrigger = 'manual' | 'schedule';
 
 /** Tokens only: there is no price table. */
 export interface ReportUsage {
@@ -111,6 +116,7 @@ export interface ReportRun {
   statusReason: string | null;
   title: string;
   preparedBy: string | null;
+  trigger: ReportTrigger;
   inputs: Record<string, string>;
   blocks: unknown[];
   warnings: ReportWarning[];

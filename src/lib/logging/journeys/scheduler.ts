@@ -93,6 +93,13 @@ export const schedulerLogger = {
     );
   },
 
+  reportScheduleError(err: Error) {
+    log.error(
+      { event: 'scheduler.report_schedule.error', err },
+      `Error starting scheduled reports`
+    );
+  },
+
   // ─── Suppressed Events (TRACE — invisible) ────────────────
 
   tick() {

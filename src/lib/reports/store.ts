@@ -13,6 +13,7 @@ import {
   type ReportFigure,
   type ReportQuery,
   type ReportRun,
+  type ReportTrigger,
 } from './types';
 
 export interface NewReportRun {
@@ -21,6 +22,8 @@ export interface NewReportRun {
   title: string;
   preparedBy: string | null;
   inputs: Record<string, string>;
+  /** Defaults to 'manual'. */
+  trigger?: ReportTrigger;
 }
 
 export type ReportRunPatch = Partial<
@@ -56,6 +59,8 @@ export type ReportQueryPatch = Partial<
  */
 export interface ReportStore {
   findDefinition(where: { id: string } | { key: string }): Promise<ReportDefinition | null>;
+  /** Every definition, in list order. */
+  listDefinitions(): Promise<ReportDefinition[]>;
 
   createRun(data: NewReportRun): Promise<ReportRun>;
   getRun(id: string): Promise<ReportRun | null>;
@@ -64,6 +69,8 @@ export interface ReportStore {
   updateRun(id: string, patch: ReportRunPatch): Promise<ReportRun>;
   /** Every run, newest first. */
   listRuns(): Promise<ReportRun[]>;
+  /** The runs created at or after a moment, newest first. */
+  listRunsSince(since: Date): Promise<ReportRun[]>;
   /** Removes a run with its queries, ledger and events. Nothing else deletes a run. */
   deleteRun(id: string): Promise<void>;
 
@@ -111,6 +118,7 @@ const toRun = (row: RunRow): ReportRun => ({
   statusReason: row.statusReason,
   title: row.title,
   preparedBy: row.preparedBy,
+  trigger: row.trigger as ReportTrigger,
   inputs: row.inputs as ReportRun['inputs'],
   blocks: row.blocks as unknown[],
   warnings: row.warnings as unknown as ReportRun['warnings'],
@@ -182,6 +190,7 @@ const toDefinition = (row: DefinitionRow): ReportDefinition => ({
   isDefault: row.isDefault,
   enabled: row.enabled,
   sortOrder: row.sortOrder,
+  scheduleDailyAt: row.scheduleDailyAt,
 });
 
 const toBlockDef = (row: BlockDefRow): BlockDef => ({
@@ -202,6 +211,13 @@ export const prismaStore: ReportStore = {
   async findDefinition(where) {
     const row = await prisma.reportDefinition.findUnique({ where });
     return row && toDefinition(row);
+  },
+
+  async listDefinitions() {
+    const rows = await prisma.reportDefinition.findMany({
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+    return rows.map(toDefinition);
   },
 
   async createRun(data) {
@@ -240,6 +256,14 @@ export const prismaStore: ReportStore = {
 
   async listRuns() {
     const rows = await prisma.reportRun.findMany({ orderBy: { createdAt: 'desc' } });
+    return rows.map(toRun);
+  },
+
+  async listRunsSince(since) {
+    const rows = await prisma.reportRun.findMany({
+      where: { createdAt: { gte: since } },
+      orderBy: { createdAt: 'desc' },
+    });
     return rows.map(toRun);
   },
 
@@ -351,11 +375,15 @@ export const prismaStore: ReportStore = {
   },
 };
 
-/** A store that lives in memory, for tests. Its blocks are the built-ins unless given others. */
+/**
+ * A store that lives in memory, for tests. Its blocks are the built-ins
+ * unless given others; `now` sets the clock a new run's createdAt is read from.
+ */
 export function memoryStore(
-  seed: { definitions?: ReportDefinition[]; blockDefs?: BlockDef[] } = {}
+  seed: { definitions?: ReportDefinition[]; blockDefs?: BlockDef[]; now?: () => Date } = {}
 ): ReportStore {
   const definitions = seed.definitions ?? [];
+  const now = seed.now ?? (() => new Date());
   const blockDefs = seed.blockDefs ?? builtinBlockDefs();
   const runs = new Map<string, ReportRun>();
   // Counted, not read from the map's size: a deleted run's id is not given out again.
@@ -381,9 +409,14 @@ export function memoryStore(
       return found ? copy(found) : null;
     },
 
+    async listDefinitions() {
+      return copy([...definitions].sort((a, b) => a.sortOrder - b.sortOrder));
+    },
+
     async createRun(data) {
       const run: ReportRun = {
         ...copy(data),
+        trigger: data.trigger ?? 'manual',
         id: `run${++created}`,
         status: 'QUEUED',
         statusReason: null,
@@ -397,7 +430,7 @@ export function memoryStore(
         currencyCode: null,
         startedAt: null,
         completedAt: null,
-        createdAt: new Date(),
+        createdAt: now(),
       };
       runs.set(run.id, run);
       return copy(run);
@@ -420,6 +453,10 @@ export function memoryStore(
 
     async listRuns() {
       return copy([...runs.values()].reverse());
+    },
+
+    async listRunsSince(since) {
+      return copy([...runs.values()].reverse().filter((run) => run.createdAt >= since));
     },
 
     async deleteRun(id) {

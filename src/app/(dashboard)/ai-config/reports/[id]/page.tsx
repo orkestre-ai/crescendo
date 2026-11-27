@@ -58,6 +58,7 @@ export default function EditReportDefinitionPage({ params }: { params: Promise<{
           maxSteps: definition.maxSteps,
           maxMinutes: definition.maxMinutes,
           enabled: definition.enabled,
+          scheduleDailyAt: definition.scheduleDailyAt,
         }}
       />
     </div>
