@@ -39,7 +39,9 @@ export const definitionList: BlockSeed = {
   <li><strong>{{ item.term }}</strong> {{ item.text }}</li>
 {%- endfor %}
 </ul>`,
-  css: `.blk-definition_list ul { margin: 0; padding-left: var(--sp-5); color: var(--text-2); font-size: var(--fs-md); }
+  // On paper, a list of four notes or more may run over a page, between notes.
+  css: `.blk-definition_list:has(li:nth-child(4)) { break-inside: auto; }
+.blk-definition_list ul { margin: 0; padding-left: var(--sp-5); color: var(--text-2); font-size: var(--fs-md); }
 .blk-definition_list li { margin: 0 0 var(--sp-2); max-width: var(--measure); break-inside: avoid; }
 .blk-definition_list li:last-child { margin-bottom: 0; }
 .blk-definition_list strong { color: var(--text); font-weight: 600; }`,

@@ -17,7 +17,8 @@ export class ChartError extends Error {}
 const LOCALE = 'en-CA';
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const LABEL_GAP = 6;
+// The least room between two labels under an axis: about the width of a letter and a space.
+const LABEL_GAP = 10;
 // The longest bar of a row chart, as a percent of its row: the label after it always has room.
 const LONGEST_ROW_BAR = 55;
 
@@ -100,7 +101,7 @@ function currencySymbol(currencyCode: string | null): string {
 
 const trimZeros = (text: string) => (text.includes('.') ? text.replace(/\.?0+$/, '') : text);
 
-/** A short form for a label on a chart or a tile: $44.4k, 1.8M, 37.2%. */
+/** A short form for a label on a chart: $44.4k, 1.8M, 37.2%. */
 export function compactNumber(value: number, unit: Unit, currencyCode: string | null): string {
   if (unit === 'percent' || unit === 'ratio' || unit === 'text') {
     return formatFigure(value, unit, currencyCode);
@@ -110,6 +111,26 @@ export function compactNumber(value: number, unit: Unit, currencyCode: string | 
   if (abs >= 1e6) body = `${trimZeros((abs / 1e6).toFixed(abs >= 1e8 ? 0 : 1))}M`;
   else if (abs >= 1e3) body = `${trimZeros((abs / 1e3).toFixed(abs >= 1e5 ? 0 : 1))}k`;
   else body = trimZeros(abs.toFixed(Number.isInteger(abs) ? 0 : 1));
+  const symbol = unit === 'currency' ? currencySymbol(currencyCode) : '';
+  return `${value < 0 ? '−' : ''}${symbol}${body}`;
+}
+
+/**
+ * The short form for a headline tile: three figures whatever the size, so
+ * tiles side by side are equally exact ($413k beside 1.28M, never 1.3M).
+ * A number under 10,000 is short already and is written in full.
+ */
+export function shortNumber(value: number, unit: Unit, currencyCode: string | null): string {
+  const figures = Number(Math.abs(value).toPrecision(3));
+  if (unit === 'percent' || unit === 'ratio' || unit === 'text' || figures < 1e4) {
+    return formatFigure(value, unit, currencyCode);
+  }
+  const body =
+    figures >= 1e9
+      ? `${Math.round(figures / 1e6).toLocaleString(LOCALE)}M`
+      : figures >= 1e6
+        ? `${(figures / 1e6).toPrecision(3)}M`
+        : `${(figures / 1e3).toPrecision(3)}k`;
   const symbol = unit === 'currency' ? currencySymbol(currencyCode) : '';
   return `${value < 0 ? '−' : ''}${symbol}${body}`;
 }
@@ -159,17 +180,22 @@ export function parseDay(raw: Cell): Date | null {
   return date.getUTCDate() === Number(match[3]) ? date : null;
 }
 
-export function hourLabel(raw: Cell): string {
+/**
+ * An hour of the day. Under an axis every label has the same short form
+ * (12am, 6am, 12pm), so none crowds its neighbour; in a table or a hover
+ * label, where there is room, the two ends of the clock are words.
+ */
+export function hourLabel(raw: Cell, long = true): string {
   const hour = Number(raw);
   if (!Number.isInteger(hour) || hour < 0 || hour > 23) return String(raw ?? '');
-  if (hour === 0) return 'midnight';
-  if (hour === 12) return 'noon';
-  return `${hour % 12}${hour < 12 ? 'am' : 'pm'}`;
+  if (long && hour === 0) return 'midnight';
+  if (long && hour === 12) return 'noon';
+  return `${hour % 12 || 12}${hour < 12 ? 'am' : 'pm'}`;
 }
 
 /** The short label under an axis, and the long one in a hover label or a table. */
 export function axisLabel(raw: Cell, kind: AxisKind, long = false): string {
-  if (kind === 'hour') return hourLabel(raw);
+  if (kind === 'hour') return hourLabel(raw, long);
   if (kind === 'date') {
     const date = parseDay(raw);
     if (!date) return String(raw ?? '');
@@ -181,8 +207,9 @@ export function axisLabel(raw: Cell, kind: AxisKind, long = false): string {
 
 /**
  * Which positions along the x axis get a label. Dates step by whole weeks
- * when they can; hours fall on midnight, 6am, noon and 6pm; names are
- * thinned evenly. The last position is labelled when there is room for it.
+ * when they can; hours fall on the quarters of the day (12am, 6am, 12pm,
+ * 6pm); names are thinned evenly. The last position is labelled when there
+ * is room for it.
  */
 function xTickIndexes(
   labels: string[],
@@ -208,8 +235,8 @@ function xTickIndexes(
     for (let i = 0; i < n; i += step) indexes.push(i);
     return indexes;
   };
-  // Hours keep to quarters of the day however wide the chart is: midnight,
-  // 6am, noon, 6pm reads at a glance, and every second hour does not.
+  // Hours keep to quarters of the day however wide the chart is: 12am, 6am,
+  // 12pm, 6pm reads at a glance, and every second hour does not.
   const steps =
     kind === 'date' ? [1, 2, 7, 14, 28, 56] : kind === 'hour' ? [6, 12] : [1, 2, 3, 4, 5];
   let indexes = steps.map(pick).find(clear);
@@ -221,9 +248,10 @@ function xTickIndexes(
   const last = indexes[indexes.length - 1];
   if (last !== n - 1) {
     if (clear([...indexes, n - 1])) indexes.push(n - 1);
-    // Too close to the one before. Off a date axis, the end of the range
-    // matters more than a regular step (11pm, not 6pm and nothing after).
-    else if (kind !== 'date' && indexes.length > 1) {
+    // Too close to the one before. For names, the end of the range matters
+    // more than a regular step. Dates and hours keep their step: 6pm with
+    // nothing after it reads better than 12pm, a gap, then 11pm.
+    else if (kind === 'category' && indexes.length > 1) {
       const swapped = [...indexes.slice(0, -1), n - 1];
       if (clear(swapped)) indexes = swapped;
     }

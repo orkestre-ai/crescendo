@@ -51,7 +51,8 @@ code {
   overflow-wrap: anywhere;
 }
 
-/* Blocks: one rhythm down the page. A block is kept whole on a printed page. */
+/* Blocks: one rhythm down the page. On paper a block is kept whole, unless
+   it is a table or its own styles say where it may be divided. */
 .blk { margin: var(--sp-6) 0 0; break-inside: avoid; }
 .doc > .blk:first-child { margin-top: 0; }
 .blk h1, .blk h2, .blk h3 { break-after: avoid; }
@@ -80,8 +81,11 @@ code {
 .blk tbody tr:last-child td { border-bottom: 0; }
 .blk tr.total td { font-weight: 600; background: var(--surface); }
 .blk caption { caption-side: bottom; text-align: left; font-size: var(--fs-sm); color: var(--muted); padding: 8px 12px; }
-/* A block that is a table may run over a page; its header repeats. */
+/* A block that is a table may run over a page; its header repeats, no row
+   is cut in half, and the first and last rows are never left alone. */
 .blk:has(> .table-wrap) { break-inside: auto; }
+.blk tbody tr:nth-child(2), .blk tbody tr:last-child { break-before: avoid; }
+.blk .table-wrap + * { break-before: avoid; }
 
 /* Figures: the card a chart sits in */
 .blk figure {
@@ -174,7 +178,21 @@ html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 body { line-height: 1.5; }
 .wrap { max-width: none; padding: 0; }
 .toolbar, .tip { display: none; }
-.blk .table-wrap { overflow: visible; }
+/* On paper a table's frame is drawn by its cells, not by the box around it:
+   that box would run on to the foot of the page, past the last row that
+   fits. The header repeats with its rounded corners; where a table is cut by
+   a page it ends square, and only its true end is rounded. */
+.blk .table-wrap { overflow: visible; border: 0; border-radius: 0; background: none; }
+.blk table { border-collapse: separate; border-spacing: 0; }
+.blk td { background: var(--card); }
+.blk thead th { border-top: 1px solid var(--line); }
+.blk tr > :first-child { border-left: 1px solid var(--line); }
+.blk tr > :last-child { border-right: 1px solid var(--line); }
+.blk tbody tr:last-child td { border-bottom: 1px solid var(--line); }
+.blk thead th:first-child { border-top-left-radius: var(--radius); }
+.blk thead th:last-child { border-top-right-radius: var(--radius); }
+.blk .table-wrap:last-child tbody tr:last-child td:first-child { border-bottom-left-radius: var(--radius); }
+.blk .table-wrap:last-child tbody tr:last-child td:last-child { border-bottom-right-radius: var(--radius); }
 .blk .chart .hit, .blk .chart .cross, .blk .chart .dot { display: none; }
 .blk .chart .wide { display: block; }
 .blk .chart .narrow { display: none; }
@@ -190,4 +208,7 @@ export const PRINT_PREVIEW_CSS = `
 }
 `;
 
-export const PAGE_RULE = '@page { size: Letter; margin: 18mm; }';
+/** The margin of a printed page, on every side. The PDF's footer sits inside it. */
+export const PAGE_MARGIN = '18mm';
+
+export const PAGE_RULE = `@page { size: Letter; margin: ${PAGE_MARGIN}; }`;

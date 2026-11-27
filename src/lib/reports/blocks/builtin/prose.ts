@@ -25,8 +25,11 @@ export const prose: BlockSeed = {
   template: `{%- for paragraph in data.paragraphs %}
 <p>{{ paragraph }}</p>
 {%- endfor %}`,
-  css: `.blk-prose p { margin: 0 0 var(--sp-3); }
-.blk-prose p:last-child { margin-bottom: 0; }`,
+  // On paper, three paragraphs or more may run over a page, and never leave
+  // one or two lines of a paragraph alone.
+  css: `.blk-prose p { margin: 0 0 var(--sp-3); orphans: 3; widows: 3; }
+.blk-prose p:last-child { margin-bottom: 0; }
+.blk-prose:has(> p:nth-child(3)) { break-inside: auto; }`,
   sampleData: {
     paragraphs: [
       'People on a phone are more likely to start the form than people on a computer, and about four times less likely to finish it. That points at something in the later steps on a phone: the payment fields, a wallet button, or a page that does not fit the screen.',

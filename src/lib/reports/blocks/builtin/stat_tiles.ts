@@ -5,7 +5,7 @@ export const statTiles: BlockSeed = {
   key: 'stat_tiles',
   name: 'Stat tiles',
   description:
-    'A row of headline figures. Each tile shows a label, one figure from the ledger, and optionally the figure it is compared with and the change between them (a percent figure, coloured green for a rise and red for a fall).',
+    'A row of headline figures. Each tile shows a label, one figure from the ledger, and optionally the figure it is compared with and the change between them (a percent figure, coloured green for a rise and red for a fall). The tiles of a row are written the same way: all in full, or all short.',
   dataSchema: {
     type: 'object',
     additionalProperties: false,
@@ -24,7 +24,8 @@ export const statTiles: BlockSeed = {
             value: { 'x-ref': 'figure', description: 'The headline figure' },
             compact: {
               type: 'boolean',
-              description: 'Write large numbers short: 1.8M, not 1,812,440',
+              description:
+                'Write large numbers short, to three figures: 1.81M, not 1,812,440. One tile that asks for this sets it for the whole row, so every tile reads the same way',
             },
             previousLabel: {
               type: 'string',
@@ -41,13 +42,14 @@ export const statTiles: BlockSeed = {
       },
     },
   },
-  template: `<div class="tiles">
+  template: `{%- assign short = data.tiles | where: 'compact' | size -%}
+<div class="tiles">
 {%- for tile in data.tiles %}
   <div class="tile">
     <div class="label">{{ tile.label }}</div>
     <div class="value">
-      {%- if tile.compact and tile.value.value != nil -%}
-        {{ tile.value.value | fmt: 'compact', tile.value.unit }}
+      {%- if short > 0 and tile.value.value != nil -%}
+        {{ tile.value.value | fmt: 'short', tile.value.unit }}
       {%- else -%}
         {{ tile.value.display }}
       {%- endif -%}
@@ -56,8 +58,8 @@ export const statTiles: BlockSeed = {
     <div class="delta">
       {%- if tile.previous -%}
         {%- if tile.previousLabel %}{{ tile.previousLabel }}: {% endif -%}
-        {%- if tile.compact and tile.previous.value != nil -%}
-          {{ tile.previous.value | fmt: 'compact', tile.previous.unit }}
+        {%- if short > 0 and tile.previous.value != nil -%}
+          {{ tile.previous.value | fmt: 'short', tile.previous.unit }}
         {%- else -%}
           {{ tile.previous.display }}
         {%- endif -%}

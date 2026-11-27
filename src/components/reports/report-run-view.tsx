@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Download } from 'lucide-react';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import {
   Table,
@@ -11,13 +11,13 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { describeSource } from '@/lib/reports/ledger-csv';
 import type {
   FigureSource,
   RecheckStatus,
   ReportEventType,
   ReportRunStatus,
   ReportWarning,
-  RowMatch,
 } from '@/lib/reports/types';
 
 interface RunSummary {
@@ -88,26 +88,13 @@ const INCOMPLETE: Partial<Record<ReportRunStatus, string>> = {
 const when = (iso: string | null) =>
   iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '';
 
-const condition = (match: RowMatch) =>
-  `${match.column} ${match.op} ${Array.isArray(match.value) ? match.value.join(', ') : match.value}`;
-
-/** Where a figure comes from, in a line. */
-function describeSource(source: FigureSource): string {
-  switch (source.kind) {
-    case 'cell':
-      return `${source.column} in ${source.query}, where ${source.where.map(condition).join(' and ')}`;
-    case 'aggregate':
-      return `${source.agg} of ${source.column} in ${source.query}${
-        source.where?.length ? `, where ${source.where.map(condition).join(' and ')}` : ''
-      }`;
-    case 'formula':
-      return `${source.expr}, with ${Object.entries(source.refs)
-        .map(([name, key]) => `${name} = ${key}`)
-        .join(', ')}`;
-    default:
-      return `Stated: ${source.reason}`;
-  }
-}
+// The three files a report can be saved as. Each link is a plain download:
+// the server names the file.
+const DOWNLOADS = [
+  { label: 'PDF', path: 'pdf' },
+  { label: 'HTML', path: 'html?download=1' },
+  { label: 'Ledger CSV', path: 'ledger.csv' },
+];
 
 /**
  * One report run: its status, the document in a sandboxed frame, and under
@@ -129,20 +116,35 @@ export function ReportRunView({
 
   return (
     <div className="space-y-6">
-      <div>
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-3xl font-bold tracking-tight">{run.title}</h1>
-          <Badge variant={status.variant}>{status.label}</Badge>
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+        <div>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-3xl font-bold tracking-tight">{run.title}</h1>
+            <Badge variant={status.variant}>{status.label}</Badge>
+          </div>
+          <p className="text-muted-foreground mt-1 text-sm">
+            {[
+              run.preparedBy && `Prepared by ${run.preparedBy}`,
+              run.startedAt && `Started ${when(run.startedAt)}`,
+              run.completedAt && `Ended ${when(run.completedAt)}`,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </p>
         </div>
-        <p className="text-muted-foreground mt-1 text-sm">
-          {[
-            run.preparedBy && `Prepared by ${run.preparedBy}`,
-            run.startedAt && `Started ${when(run.startedAt)}`,
-            run.completedAt && `Ended ${when(run.completedAt)}`,
-          ]
-            .filter(Boolean)
-            .join(' · ')}
-        </p>
+        <div className="flex flex-wrap gap-2">
+          {DOWNLOADS.map((file) => (
+            <a
+              key={file.path}
+              href={`/api/reports/runs/${run.id}/${file.path}`}
+              download
+              className="inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-input bg-transparent px-3 text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              <Download className="h-4 w-4" />
+              {file.label}
+            </a>
+          ))}
+        </div>
       </div>
 
       {incomplete && (

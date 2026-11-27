@@ -50,7 +50,9 @@ export const priorityCards: BlockSeed = {
   </li>
 {%- endfor %}
 </ol>`,
-  css: `.blk-priority_cards ol { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; counter-reset: card; }
+  // On paper the list may run over a page between cards; a card is never cut.
+  css: `.blk-priority_cards { break-inside: auto; }
+.blk-priority_cards ol { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; counter-reset: card; }
 .blk-priority_cards li {
   counter-increment: card;
   position: relative;

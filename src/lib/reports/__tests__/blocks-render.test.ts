@@ -8,6 +8,7 @@ import {
   chartLine,
   chartRows,
   compactNumber,
+  shortNumber,
   formatChange,
   tableView,
   tidyTicks,
@@ -21,7 +22,7 @@ import { renderGalleryHtml, renderReportHtml } from '../render';
 import { lintRun } from '../runner';
 import { memoryStore, type ReportStore } from '../store';
 import { createReportTools } from '../tools';
-import { CHANNELS, DAILY, LEDGER } from './blocks-fixtures';
+import { CHANNELS, DAILY, LEDGER, figure } from './blocks-fixtures';
 
 const block = (key: string) => BUILTIN_BLOCKS.find((b) => b.key === key)!;
 const resolved = (dataset: typeof DAILY): ResolvedDataset => ({
@@ -107,7 +108,31 @@ test('validateBlockData: good data for a tile block passes and renders from the 
   const html = renderBlock(block('stat_tiles'), resolveBlockData(data, LEDGER), { mode: 'screen' });
   assert.match(html, /<div class="value">\$5,401<\/div>/);
   assert.match(html, /<b class="down">−37%<\/b>/);
-  assert.match(html, /<div class="value">1\.8M<\/div>/);
+  assert.match(html, /<div class="value">1\.81M<\/div>/);
+});
+
+test('stat_tiles: one tile that asks for short numbers sets it for the whole row', () => {
+  const tiles = (compact: boolean) => ({
+    tiles: [
+      { label: 'Revenue', value: { figure: 'big_revenue' }, previous: { figure: 'sessions' } },
+      { label: 'Gifts', value: { figure: 'gifts' } },
+      { label: 'Visits', value: { figure: 'sessions' }, ...(compact ? { compact } : {}) },
+    ],
+  });
+  const ledger = {
+    ...LEDGER,
+    figures: [...LEDGER.figures, figure('big_revenue', 412_860, 'currency')],
+  };
+  const values = (data: unknown) =>
+    [
+      ...renderBlock(block('stat_tiles'), resolveBlockData(data, ledger), {
+        mode: 'print',
+      }).matchAll(/<div class="(?:value|delta)">([^<]*)</g),
+    ].map((match) => match[1]);
+
+  // Every large number is cut to three figures; a small one is left as it is.
+  assert.deepEqual(values(tiles(true)), ['$413k', '1.81M', '54', '1.81M']);
+  assert.deepEqual(values(tiles(false)), ['$412,860', '1,812,440', '54', '1,812,440']);
 });
 
 test('validateBlockData: a typed number where a figure belongs is refused', () => {
@@ -250,6 +275,15 @@ test('compactNumber and formatChange: short forms for labels', () => {
   assert.equal(compactNumber(1_812_440, 'count', null), '1.8M');
   assert.equal(compactNumber(581, 'currency', 'CAD'), '$581');
   assert.equal(compactNumber(-2_500, 'count', null), '−2.5k');
+  // A headline keeps three figures at any size, and leaves small numbers alone.
+  assert.equal(shortNumber(1_284_300, 'count', null), '1.28M');
+  assert.equal(shortNumber(412_860, 'currency', 'CAD'), '$413k');
+  assert.equal(shortNumber(17_911, 'currency', 'CAD'), '$17.9k');
+  assert.equal(shortNumber(999_960, 'count', null), '1.00M');
+  assert.equal(shortNumber(-25_000, 'count', null), '−25.0k');
+  assert.equal(shortNumber(2_946, 'count', null), '2,946');
+  assert.equal(shortNumber(140.14, 'currency', 'CAD'), '$140.14');
+  assert.equal(shortNumber(0.0637, 'percent', null), '6.4%');
   assert.equal(formatChange(0.009), '+0.9%');
   assert.equal(formatChange(-0.046), '−4.6%');
   assert.equal(formatChange(-0.17), '−17%');
@@ -260,8 +294,11 @@ test('compactNumber and formatChange: short forms for labels', () => {
 test('axisLabel: dates and hours as a person writes them', () => {
   assert.equal(axisLabel('20261201', 'date'), '1 Dec');
   assert.equal(axisLabel('2026-12-01', 'date', true), 'Tue 1 Dec 2026');
-  assert.equal(axisLabel('00', 'hour'), 'midnight');
-  assert.equal(axisLabel(12, 'hour'), 'noon');
+  // Under an axis every hour has the same short form; with room, the ends of the clock are words.
+  assert.equal(axisLabel('00', 'hour'), '12am');
+  assert.equal(axisLabel(12, 'hour'), '12pm');
+  assert.equal(axisLabel('00', 'hour', true), 'midnight');
+  assert.equal(axisLabel(12, 'hour', true), 'noon');
   assert.equal(axisLabel('17', 'hour'), '5pm');
   assert.equal(axisLabel('not a date', 'date'), 'not a date');
 });
@@ -393,7 +430,7 @@ test('chartLine: two lines over 24 hours, with hour ticks and a value at the end
   const wide = chartLine(hours, { ...opts, width: 860, height: 300 });
   assert.deepEqual(
     wide.xTicks.map((tick) => tick.label),
-    ['midnight', '6am', 'noon', '6pm', '11pm']
+    ['12am', '6am', '12pm', '6pm', '11pm']
   );
   assert.deepEqual(
     wide.yTicks.map((tick) => tick.label),
@@ -417,6 +454,14 @@ test('chartLine: two lines over 24 hours, with hour ticks and a value at the end
   // First label starts at the axis, last ends at it: neither hangs outside.
   assert.equal(narrow.xTicks[0].anchor, 'start');
   assert.equal(narrow.xTicks[narrow.xTicks.length - 1].anchor, 'end');
+
+  // At the width of a printed half column the quarters of the day still fit,
+  // 10 units or more apart, and 6pm is not given up to make room for 11pm.
+  const half = chartLine(hours, { ...opts, width: 306, height: 216 });
+  assert.deepEqual(
+    half.xTicks.map((tick) => tick.label),
+    ['12am', '6am', '12pm', '6pm']
+  );
 });
 
 test('chartLine: a gap in the data lifts the pen, and an empty table is an error', () => {

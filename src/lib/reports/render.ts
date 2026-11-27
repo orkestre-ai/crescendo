@@ -107,7 +107,8 @@ const GALLERY_CSS = `
 }
 .gallery-label b { color: var(--text); font-weight: 600; font-size: var(--fs-md); }
 .gallery-label span { flex: 1 1 320px; }
-.gallery-item > .blk { margin-top: 0; }
+/* Here a section heading is followed by the next block's label, not by its own first block. */
+.gallery-item > .blk { margin-top: 0; break-after: auto; }
 `;
 
 /**

@@ -8,6 +8,7 @@ import {
   chartLine,
   chartRows,
   compactNumber,
+  shortNumber,
   tableView,
   formatChange,
   type AxisKind,
@@ -102,9 +103,10 @@ engine.registerFilter('table', function (this: FilterImpl, dataset, columns, x, 
 /**
  * {{ cell | fmt: 'currency' }}: write a ledger value. The formats are the
  * ledger's units (currency, count, percent, ratio, text) and: `change`, a
- * signed percent from a fraction; `compact`, a short form, with the unit as
- * a second argument; `date`, `hour` and `category`, for the x column of a
- * chart's table. An empty value is a dash.
+ * signed percent from a fraction; `compact`, a short form for a chart label,
+ * and `short`, a short form to three figures for a headline, both with the
+ * unit as a second argument; `date`, `hour` and `category`, for the x column
+ * of a chart's table. An empty value is a dash.
  */
 engine.registerFilter('fmt', function (this: FilterImpl, value, format, unit) {
   if (value === null || value === undefined || value === '') return '—';
@@ -114,9 +116,9 @@ engine.registerFilter('fmt', function (this: FilterImpl, value, format, unit) {
   }
   if (typeof value !== 'number') return String(value);
   if (kind === 'change') return formatChange(value);
-  if (kind === 'compact') {
+  if (kind === 'compact' || kind === 'short') {
     const of = (UNITS as readonly string[]).includes(String(unit)) ? (unit as Unit) : 'count';
-    return compactNumber(value, of, currencyOf(this));
+    return (kind === 'short' ? shortNumber : compactNumber)(value, of, currencyOf(this));
   }
   const of = (UNITS as readonly string[]).includes(kind) ? (kind as Unit) : 'count';
   return formatFigure(value, of, currencyOf(this));
