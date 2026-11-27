@@ -21,9 +21,9 @@ type Call = { tool: string; input: unknown };
 type Step = Call[] | string;
 
 const DAILY: Row[] = [
-  { date: '20261123', sessions: '100', purchaseRevenue: '250.5' },
-  { date: '20261124', sessions: '120', purchaseRevenue: '300' },
-  { date: '20261125', sessions: '80', purchaseRevenue: '0' },
+  { date: '20261123', transactions: '100', purchaseRevenue: '250.5' },
+  { date: '20261124', transactions: '120', purchaseRevenue: '300' },
+  { date: '20261125', transactions: '80', purchaseRevenue: '0' },
 ];
 
 const DEFINITION: DefinitionSnapshot = {
@@ -95,15 +95,18 @@ function fakeReport(answers: Row[][]) {
   return { fake, calls };
 }
 
-const QUERY: Call = { tool: 'fake_report', input: { metrics: ['sessions', 'purchaseRevenue'] } };
+const QUERY: Call = {
+  tool: 'fake_report',
+  input: { metrics: ['transactions', 'purchaseRevenue'] },
+};
 const FIGURES: Call[] = [
   {
     tool: 'record_figure',
     input: {
-      key: 'sessions',
-      label: 'Sessions',
+      key: 'gifts',
+      label: 'Gifts',
       unit: 'count',
-      source: { kind: 'aggregate', query: 'q1', column: 'sessions', agg: 'sum' },
+      source: { kind: 'aggregate', query: 'q1', column: 'transactions', agg: 'sum' },
     },
   },
   {
@@ -119,12 +122,12 @@ const FIGURES: Call[] = [
     tool: 'record_figure',
     input: {
       key: 'last_day',
-      label: 'Sessions on the last day',
+      label: 'Gifts on the last day',
       unit: 'count',
       source: {
         kind: 'cell',
         query: 'q1',
-        column: 'sessions',
+        column: 'transactions',
         where: [{ column: 'date', op: '=', value: '20261125' }],
       },
     },
@@ -133,10 +136,10 @@ const FIGURES: Call[] = [
     // Reads two figures recorded in the same step.
     tool: 'record_figure',
     input: {
-      key: 'per_session',
-      label: 'Revenue per session',
+      key: 'per_gift',
+      label: 'Average gift',
       unit: 'currency',
-      source: { kind: 'formula', expr: 'r / s', refs: { r: 'revenue', s: 'sessions' } },
+      source: { kind: 'formula', expr: 'r / s', refs: { r: 'revenue', s: 'gifts' } },
     },
   },
 ];
@@ -223,21 +226,21 @@ test('runReport: a scripted run saves its query, computes its figures and finish
   assert.equal(queries.length, 1);
   assert.equal(queries[0].key, 'q1');
   assert.equal(queries[0].tool, 'fake_report');
-  assert.deepEqual(queries[0].params, { metrics: ['sessions', 'purchaseRevenue'] });
+  assert.deepEqual(queries[0].params, { metrics: ['transactions', 'purchaseRevenue'] });
   assert.equal(queries[0].rowCount, 3);
   assert.equal(queries[0].recheck?.matched, true);
   assert.equal(dataCalls.length, 2);
 
   // Crescendo computed and formatted every figure, and every one was rechecked.
   const figures = await figuresByKey(store, runId);
-  assert.equal(figures.sessions.value, 300);
-  assert.equal(figures.sessions.display, '300');
+  assert.equal(figures.gifts.value, 300);
+  assert.equal(figures.gifts.display, '300');
   assert.equal(figures.revenue.value, 550.5);
   assert.equal(figures.revenue.display, '$550.50');
   assert.equal(figures.last_day.value, 80);
-  assert.equal(figures.per_session.value, 550.5 / 300);
-  assert.equal(figures.per_session.display, '$1.84');
-  assert.deepEqual(figures.per_session.queryKeys, ['q1']);
+  assert.equal(figures.per_gift.value, 550.5 / 300);
+  assert.equal(figures.per_gift.display, '$1.84');
+  assert.deepEqual(figures.per_gift.queryKeys, ['q1']);
   for (const figure of Object.values(figures)) {
     assert.equal(figure.recheckStatus, 'matched', figure.key);
   }
@@ -257,10 +260,10 @@ test('runReport: a scripted run saves its query, computes its figures and finish
       'status: Queued',
       'status: Running',
       'query: q1: fake_report, 3 rows',
-      'figure: sessions = 300 (Sessions)',
+      'figure: gifts = 300 (Gifts)',
       'figure: revenue = $550.50 (Revenue)',
-      'figure: last_day = 80 (Sessions on the last day)',
-      'figure: per_session = $1.84 (Revenue per session)',
+      'figure: last_day = 80 (Gifts on the last day)',
+      'figure: per_gift = $1.84 (Average gift)',
       'note: Revenue was flat on the last day.',
       'summary: Three days reported.',
       'status: Rechecking: running every saved query again',
@@ -321,10 +324,10 @@ test('runReport: the model reads each computed value back from the tool', async 
         tool: 'define_dataset',
         input: {
           key: 'daily',
-          label: 'Sessions by day',
+          label: 'Gifts by day',
           spec: {
             from: 'q1',
-            select: [{ column: 'date' }, { column: 'sessions', format: 'count' }],
+            select: [{ column: 'date' }, { column: 'transactions', format: 'count' }],
             totalRow: true,
           },
         },
@@ -339,7 +342,7 @@ test('runReport: the model reads each computed value back from the tool', async 
   assert.match(sent(model, 1), /"query":"q1"/);
   // Step 3 sees the figures as Crescendo computed and wrote them.
   const third = sent(model, 2);
-  assert.match(third, /"key":"sessions","value":300,"display":"300","rowsRead":3/);
+  assert.match(third, /"key":"gifts","value":300,"display":"300","rowsRead":3/);
   assert.match(third, /"key":"revenue","value":550.5,"display":"\$550.50"/);
   // Step 4 sees the dataset and the rows read back.
   const fourth = sent(model, 3);
@@ -362,7 +365,7 @@ test('runReport: a call the ledger refuses goes back to the model as an error, a
           key: 'one_day',
           label: 'One day',
           unit: 'count',
-          source: { kind: 'cell', query: 'q1', column: 'sessions', where: [] },
+          source: { kind: 'cell', query: 'q1', column: 'transactions', where: [] },
         },
       },
       {
@@ -424,13 +427,13 @@ test('runReport: recording a figure again updates the formulas that read it', as
       {
         tool: 'record_figure',
         input: {
-          key: 'sessions',
-          label: 'Sessions on the first two days',
+          key: 'gifts',
+          label: 'Gifts on the first two days',
           unit: 'count',
           source: {
             kind: 'aggregate',
             query: 'q1',
-            column: 'sessions',
+            column: 'transactions',
             agg: 'sum',
             where: [{ column: 'date', op: '<=', value: '20261124' }],
           },
@@ -442,11 +445,11 @@ test('runReport: recording a figure again updates the formulas that read it', as
   await runReport(runId, deps);
 
   const figures = await figuresByKey(store, runId);
-  assert.equal(figures.sessions.value, 220);
-  assert.equal(figures.per_session.value, 550.5 / 220);
-  assert.match(sent(model, 3), /"alsoUpdated":\[\{"key":"per_session","display":"\$2.50"\}\]/);
+  assert.equal(figures.gifts.value, 220);
+  assert.equal(figures.per_gift.value, 550.5 / 220);
+  assert.match(sent(model, 3), /"alsoUpdated":\[\{"key":"per_gift","display":"\$2.50"\}\]/);
   // Both are consistent at the recheck, so neither reads as corrected.
-  assert.equal(figures.per_session.recheckStatus, 'matched');
+  assert.equal(figures.per_gift.recheckStatus, 'matched');
 });
 
 test('runReport: email addresses are removed from a result before it is saved or shown, and counted', async () => {
@@ -492,7 +495,7 @@ test('runReport: cancel mid-run stops before the next step and keeps the work so
   // Queries, ledger and notes are kept, and nothing was rechecked.
   assert.equal((await store.listQueries(runId)).length, 1);
   assert.equal((await store.listFigures(runId)).length, 4);
-  assert.equal((await figuresByKey(store, runId)).sessions.recheckStatus, 'unchecked');
+  assert.equal((await figuresByKey(store, runId)).gifts.recheckStatus, 'unchecked');
   assert.equal(started.dataCalls.length, 1);
   const events = await store.listEvents(runId);
   assert.ok(events.some((e) => e.type === 'note' && e.message === 'Step 3'));
@@ -639,8 +642,10 @@ test('runReport: a tool the definition names that does not exist is skipped with
 
 test('runReport: a different number the second time corrects the figure and gives the model a correction turn', async () => {
   const store = memoryStore();
-  // The last day was still being processed: 80 sessions on the first run, 95 on the second.
-  const second = DAILY.map((row) => (row.date === '20261125' ? { ...row, sessions: '95' } : row));
+  // The last day was still being processed: 80 gifts on the first run, 95 on the second.
+  const second = DAILY.map((row) =>
+    row.date === '20261125' ? { ...row, transactions: '95' } : row
+  );
   const { runId, model, deps, dataCalls } = await start(
     store,
     [
@@ -648,7 +653,7 @@ test('runReport: a different number the second time corrects the figure and give
       FIGURES,
       [FINISH],
       // The correction turn
-      [{ tool: 'note', input: { text: 'Sessions were revised up after the recheck.' } }],
+      [{ tool: 'note', input: { text: 'Gifts were revised up after the recheck.' } }],
       [{ tool: 'finish_report', input: { summary: 'Three days reported, one figure revised.' } }],
     ],
     { answers: [DAILY, second] }
@@ -661,23 +666,23 @@ test('runReport: a different number the second time corrects the figure and give
   assert.equal(dataCalls.length, 2);
 
   const figures = await figuresByKey(store, runId);
-  assert.equal(figures.sessions.recheckStatus, 'corrected');
-  assert.equal(figures.sessions.value, 315);
-  assert.equal(figures.sessions.display, '315');
-  assert.equal(figures.sessions.previousValue, 300);
+  assert.equal(figures.gifts.recheckStatus, 'corrected');
+  assert.equal(figures.gifts.value, 315);
+  assert.equal(figures.gifts.display, '315');
+  assert.equal(figures.gifts.previousValue, 300);
   assert.equal(figures.last_day.recheckStatus, 'corrected');
   assert.equal(figures.last_day.value, 95);
   assert.equal(figures.last_day.previousValue, 80);
-  assert.equal(figures.per_session.recheckStatus, 'corrected');
-  assert.equal(figures.per_session.value, 550.5 / 315);
+  assert.equal(figures.per_gift.recheckStatus, 'corrected');
+  assert.equal(figures.per_gift.value, 550.5 / 315);
   assert.equal(figures.revenue.recheckStatus, 'matched');
   assert.equal(figures.revenue.previousValue, null);
 
   // The model got its correction turn: old and new values, by figure.
   const correction = sent(model, 3);
-  assert.match(correction, /sessions: was 300, is now 315/);
+  assert.match(correction, /gifts: was 300, is now 315/);
   assert.match(correction, /last_day: was 80, is now 95/);
-  assert.match(correction, /per_session: was \$1\.84, is now \$1\.75/);
+  assert.match(correction, /per_gift: was \$1\.84, is now \$1\.75/);
   assert.doesNotMatch(correction, /- revenue: was/);
   assert.match(correction, /Queries whose rows changed: q1/);
 
@@ -686,7 +691,7 @@ test('runReport: a different number the second time corrects the figure and give
     'status: Rechecking: running every saved query again',
     'status: Recheck done: 1 queries, 3 figures and 0 datasets changed.',
     'status: Revising after the recheck',
-    'note: Sessions were revised up after the recheck.',
+    'note: Gifts were revised up after the recheck.',
     'summary: Three days reported, one figure revised.',
     'status: Completed',
   ]);
@@ -696,7 +701,9 @@ test('runReport: a different number the second time corrects the figure and give
 
 test('runReport: no new queries can be run in the correction turn', async () => {
   const store = memoryStore();
-  const second = DAILY.map((row) => (row.date === '20261125' ? { ...row, sessions: '95' } : row));
+  const second = DAILY.map((row) =>
+    row.date === '20261125' ? { ...row, transactions: '95' } : row
+  );
   const { runId, model, deps, dataCalls } = await start(
     store,
     [[QUERY], FIGURES, [FINISH], [QUERY], [FINISH]],
@@ -713,7 +720,9 @@ test('runReport: no new queries can be run in the correction turn', async () => 
 
 test('runReport: the correction turn ends after 20 steps', async () => {
   const store = memoryStore();
-  const second = DAILY.map((row) => (row.date === '20261125' ? { ...row, sessions: '95' } : row));
+  const second = DAILY.map((row) =>
+    row.date === '20261125' ? { ...row, transactions: '95' } : row
+  );
   const { runId, model, deps } = await start(
     store,
     (step) =>
@@ -736,7 +745,9 @@ test('runReport: the correction turn ends after 20 steps', async () => {
 
 test('runReport: the correction turn ends when the model has nothing more to do', async () => {
   const store = memoryStore();
-  const second = DAILY.map((row) => (row.date === '20261125' ? { ...row, sessions: '95' } : row));
+  const second = DAILY.map((row) =>
+    row.date === '20261125' ? { ...row, transactions: '95' } : row
+  );
   const { runId, model, deps } = await start(
     store,
     [[QUERY], FIGURES, [FINISH], 'Nothing needs revising.'],
@@ -749,7 +760,9 @@ test('runReport: the correction turn ends when the model has nothing more to do'
 
 test('runReport: cancel during the correction turn is honoured', async () => {
   const store = memoryStore();
-  const second = DAILY.map((row) => (row.date === '20261125' ? { ...row, sessions: '95' } : row));
+  const second = DAILY.map((row) =>
+    row.date === '20261125' ? { ...row, transactions: '95' } : row
+  );
   let runId = '';
   const script = (step: number): Step => {
     if (step === 3) void store.updateRun(runId, { cancelRequested: true });
@@ -768,7 +781,7 @@ test('runReport: cancel during the correction turn is honoured', async () => {
   assert.equal((await store.getRun(runId))?.status, 'CANCELLED');
   assert.equal(started.model.doGenerateCalls.length, 4);
   // The corrected ledger is kept.
-  assert.equal((await figuresByKey(store, runId)).sessions.value, 315);
+  assert.equal((await figuresByKey(store, runId)).gifts.value, 315);
 });
 
 // --- context clearing in the loop ---

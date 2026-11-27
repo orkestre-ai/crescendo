@@ -93,6 +93,7 @@ So record the figures and define the datasets a block needs before you add it. a
 ## Rules for queries
 
 - Dates are absolute, YYYY-MM-DD. Today is given in your first message. End every date range at yesterday or earlier: today's data is incomplete.
+- Sessions and users do not add up across days, hours or pages: a visit that runs past midnight is in two days' rows, and one visit reaches many pages. Take a total of sessions or users from a query without that dimension, as a cell. Revenue and gifts do add up.
 - When a result is truncated, do not treat the list as complete: narrow it, raise the limit or read on with offset. When a result is sampled or thresholded, say so in a note.
 - Old query results are cleared from this conversation to save space. The rows are kept: read_query reads them back, and figures and datasets still compute from them.
 

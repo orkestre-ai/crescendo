@@ -9,9 +9,9 @@ import type { ReportFigure } from '../types';
 type Row = Record<string, string>;
 
 const DAILY: Row[] = [
-  { date: '20261119', sessions: '100', purchaseRevenue: '250.5' },
-  { date: '20261120', sessions: '120', purchaseRevenue: '300' },
-  { date: '20261121', sessions: '80', purchaseRevenue: '0' },
+  { date: '20261119', transactions: '100', purchaseRevenue: '250.5' },
+  { date: '20261120', transactions: '120', purchaseRevenue: '300' },
+  { date: '20261121', transactions: '80', purchaseRevenue: '0' },
 ];
 
 /** A data tool that answers with whatever the test has put in `answer`. */
@@ -68,18 +68,18 @@ async function seededRun() {
   await store.updateRun(run.id, { currencyCode: 'CAD', timeZone: 'America/Toronto' });
   await store.saveQuery(run.id, {
     tool: 'fake_report',
-    params: { metrics: ['sessions', 'purchaseRevenue'] },
-    result: { headers: ['date', 'sessions', 'purchaseRevenue'], rows: DAILY, sampled: false },
+    params: { metrics: ['transactions', 'purchaseRevenue'] },
+    result: { headers: ['date', 'transactions', 'purchaseRevenue'], rows: DAILY, sampled: false },
     rowCount: 3,
     sampled: false,
     samplingNote: null,
   });
 
   await figure(store, run.id, {
-    key: 'sessions',
+    key: 'gifts',
     value: 300,
     display: '300',
-    source: { kind: 'aggregate', query: 'q1', column: 'sessions', agg: 'sum' },
+    source: { kind: 'aggregate', query: 'q1', column: 'transactions', agg: 'sum' },
     queryKeys: ['q1'],
   });
   await figure(store, run.id, {
@@ -97,17 +97,17 @@ async function seededRun() {
     source: {
       kind: 'cell',
       query: 'q1',
-      column: 'sessions',
+      column: 'transactions',
       where: [{ column: 'date', op: '=', value: '20261121' }],
     },
     queryKeys: ['q1'],
   });
   await figure(store, run.id, {
-    key: 'per_session',
+    key: 'per_gift',
     unit: 'currency',
     value: 550.5 / 300,
     display: '$1.84',
-    source: { kind: 'formula', expr: 'r / s', refs: { r: 'revenue', s: 'sessions' } },
+    source: { kind: 'formula', expr: 'r / s', refs: { r: 'revenue', s: 'gifts' } },
     queryKeys: ['q1'],
   });
   await figure(store, run.id, {
@@ -120,11 +120,11 @@ async function seededRun() {
   await store.upsertDataset({
     runId: run.id,
     key: 'daily',
-    label: 'Daily sessions',
-    spec: { from: 'q1', select: [{ column: 'date' }, { column: 'sessions', format: 'count' }] },
+    label: 'Daily gifts',
+    spec: { from: 'q1', select: [{ column: 'date' }, { column: 'transactions', format: 'count' }] },
     columns: [
       { key: 'date', format: 'text' },
-      { key: 'sessions', format: 'count' },
+      { key: 'transactions', format: 'count' },
     ],
     rows: [
       ['20261119', 100],
@@ -146,14 +146,14 @@ test('recheckRun: the same rows the second time match every figure', async () =>
 
   assert.deepEqual(result, { changedQueries: [], changedFigures: [], changedDatasets: [] });
   // The query ran again with the params it was saved with.
-  assert.deepEqual(calls, [{ metrics: ['sessions', 'purchaseRevenue'] }]);
+  assert.deepEqual(calls, [{ metrics: ['transactions', 'purchaseRevenue'] }]);
 
   const figures = await byKey(store, runId);
-  for (const key of ['sessions', 'revenue', 'last_day', 'per_session']) {
+  for (const key of ['gifts', 'revenue', 'last_day', 'per_gift']) {
     assert.equal(figures[key].recheckStatus, 'matched', key);
     assert.equal(figures[key].previousValue, null, key);
   }
-  assert.equal(figures.sessions.value, 300);
+  assert.equal(figures.gifts.value, 300);
 
   const query = await store.getQuery(runId, 'q1');
   assert.equal(query?.recheck?.matched, true);
@@ -179,8 +179,10 @@ test('recheckRun: rows in a different order still match, and nothing moves', asy
 
 test('recheckRun: a number that changed corrects its figures and keeps the old value', async () => {
   const { store, runId } = await seededRun();
-  // GA4 was still processing the last day: 80 sessions became 95.
-  const second = DAILY.map((row) => (row.date === '20261121' ? { ...row, sessions: '95' } : row));
+  // GA4 was still processing the last day: 80 gifts became 95.
+  const second = DAILY.map((row) =>
+    row.date === '20261121' ? { ...row, transactions: '95' } : row
+  );
   const { fake } = fakeTool({ rows: second });
 
   const result = await recheckRun(runId, store, { fake_report: fake });
@@ -188,10 +190,10 @@ test('recheckRun: a number that changed corrects its figures and keeps the old v
   assert.deepEqual(result.changedQueries, ['q1']);
   assert.deepEqual(result.changedDatasets, ['daily']);
   assert.deepEqual(result.changedFigures, [
-    { key: 'sessions', before: 300, after: 315, beforeDisplay: '300', afterDisplay: '315' },
+    { key: 'gifts', before: 300, after: 315, beforeDisplay: '300', afterDisplay: '315' },
     { key: 'last_day', before: 80, after: 95, beforeDisplay: '80', afterDisplay: '95' },
     {
-      key: 'per_session',
+      key: 'per_gift',
       before: 550.5 / 300,
       after: 550.5 / 315,
       beforeDisplay: '$1.84',
@@ -200,14 +202,14 @@ test('recheckRun: a number that changed corrects its figures and keeps the old v
   ]);
 
   const figures = await byKey(store, runId);
-  assert.equal(figures.sessions.recheckStatus, 'corrected');
-  assert.equal(figures.sessions.value, 315);
-  assert.equal(figures.sessions.display, '315');
-  assert.equal(figures.sessions.previousValue, 300);
+  assert.equal(figures.gifts.recheckStatus, 'corrected');
+  assert.equal(figures.gifts.value, 315);
+  assert.equal(figures.gifts.display, '315');
+  assert.equal(figures.gifts.previousValue, 300);
   // The formula follows the figures it reads.
-  assert.equal(figures.per_session.recheckStatus, 'corrected');
-  assert.equal(figures.per_session.value, 550.5 / 315);
-  assert.equal(figures.per_session.previousValue, 550.5 / 300);
+  assert.equal(figures.per_gift.recheckStatus, 'corrected');
+  assert.equal(figures.per_gift.value, 550.5 / 315);
+  assert.equal(figures.per_gift.previousValue, 550.5 / 300);
   // A figure the change did not touch still matches.
   assert.equal(figures.revenue.recheckStatus, 'matched');
   assert.equal(figures.revenue.value, 550.5);
@@ -234,7 +236,7 @@ test('recheckRun: the comparison is exact, with no tolerance', async () => {
 
   assert.deepEqual(
     result.changedFigures.map((f) => f.key),
-    ['revenue', 'per_session']
+    ['revenue', 'per_gift']
   );
   assert.equal((await byKey(store, runId)).revenue.value, 550.51);
 });
@@ -256,7 +258,9 @@ test('recheckRun: floating-point noise in GA4 decimals is not a change', async (
 
 test('recheckRun: a stated figure stays stated', async () => {
   const { store, runId } = await seededRun();
-  const { fake } = fakeTool({ rows: [{ date: '20261119', sessions: '1', purchaseRevenue: '1' }] });
+  const { fake } = fakeTool({
+    rows: [{ date: '20261119', transactions: '1', purchaseRevenue: '1' }],
+  });
 
   await recheckRun(runId, store, { fake_report: fake });
 
@@ -273,10 +277,10 @@ test('recheckRun: a query that cannot be run again leaves its figures unchecked,
 
   assert.deepEqual(result, { changedQueries: [], changedFigures: [], changedDatasets: [] });
   const figures = await byKey(store, runId);
-  for (const key of ['sessions', 'revenue', 'last_day', 'per_session']) {
+  for (const key of ['gifts', 'revenue', 'last_day', 'per_gift']) {
     assert.equal(figures[key].recheckStatus, 'unchecked', key);
   }
-  assert.equal(figures.sessions.value, 300);
+  assert.equal(figures.gifts.value, 300);
 
   // The first result is kept.
   const query = await store.getQuery(runId, 'q1');
@@ -328,14 +332,14 @@ test('recheckRun: a text figure that changed is corrected', async () => {
       kind: 'cell',
       query: 'q1',
       column: 'date',
-      where: [{ column: 'sessions', op: '>=', value: '110' }],
+      where: [{ column: 'transactions', op: '>=', value: '110' }],
     },
     queryKeys: ['q1'],
   });
   const second = [
-    { date: '20261119', sessions: '130', purchaseRevenue: '250.5' },
-    { date: '20261120', sessions: '90', purchaseRevenue: '300' },
-    { date: '20261121', sessions: '80', purchaseRevenue: '0' },
+    { date: '20261119', transactions: '130', purchaseRevenue: '250.5' },
+    { date: '20261120', transactions: '90', purchaseRevenue: '300' },
+    { date: '20261121', transactions: '80', purchaseRevenue: '0' },
   ];
   const { fake } = fakeTool({ rows: second });
 
@@ -375,16 +379,18 @@ test('recheckRun: formulas are recomputed after the figures they read, whatever 
     unit: 'currency',
     value: (550.5 / 300) * 2,
     display: '$3.67',
-    source: { kind: 'formula', expr: 'p * 2', refs: { p: 'per_session' } },
+    source: { kind: 'formula', expr: 'p * 2', refs: { p: 'per_gift' } },
     queryKeys: ['q1'],
   });
 
-  const second = DAILY.map((row) => (row.date === '20261121' ? { ...row, sessions: '95' } : row));
+  const second = DAILY.map((row) =>
+    row.date === '20261121' ? { ...row, transactions: '95' } : row
+  );
   const { fake } = fakeTool({ rows: second });
   await recheckRun(run.id, reordered, { fake_report: fake });
 
   const after = await byKey(reordered, run.id);
-  assert.equal(after.per_session.value, 550.5 / 315);
+  assert.equal(after.per_gift.value, 550.5 / 315);
   assert.equal(after.double.value, (550.5 / 315) * 2);
   assert.equal(after.double.recheckStatus, 'corrected');
 });
