@@ -1,4 +1,4 @@
-import type { ReportWarning } from '../types';
+import type { ReportQuery, ReportWarning } from '../types';
 import { FIGURE_TOKEN, textFields } from './resolve';
 import type { BlockInstance, BlockSeed, JSONSchema, Ledger, ProseWarning } from './types';
 
@@ -30,6 +30,8 @@ interface Typed {
   decimals: number;
   multiplier: number;
   percent: boolean;
+  /** Digits only: no symbol, comma, decimals or unit. */
+  plain: boolean;
 }
 
 /** The numbers typed into a text, leaving out what is not a result. */
@@ -73,6 +75,7 @@ function typedNumbers(text: string): Typed[] {
       decimals: fraction ? fraction.length - 1 : 0,
       multiplier: unit === 'k' ? 1e3 : unit === 'm' ? 1e6 : unit === 'bn' ? 1e9 : 1,
       percent,
+      plain: plainInteger && !percent,
     });
   }
   return found;
@@ -93,6 +96,29 @@ function inLedger(typed: Typed, ledger: Ledger): boolean {
     if (typed.percent) return same(figure.value * 100);
     return same(figure.value) || (figure.unit === 'percent' && same(figure.value * 100));
   });
+}
+
+/**
+ * Numbers that are names or sizes, not results: a number inside a text cell
+ * of a table (a page id), and the row limit or row count of a saved query
+ * ("the list was cut off at 250").
+ */
+function namesAndSizes(ledger: Ledger, queries: Pick<ReportQuery, 'params' | 'rowCount'>[]) {
+  const known = new Set<number>();
+  for (const dataset of ledger.datasets) {
+    for (const row of dataset.rows) {
+      for (const cell of row) {
+        if (typeof cell !== 'string') continue;
+        for (const digits of cell.match(/\d+/g) ?? []) known.add(Number(digits));
+      }
+    }
+  }
+  for (const query of queries) {
+    known.add(query.rowCount);
+    const limit = (query.params as { limit?: unknown } | null)?.limit;
+    if (typeof limit === 'number') known.add(limit);
+  }
+  return known;
 }
 
 /** The pointers of the text a person may reword, from a block's data shape. */
@@ -118,14 +144,18 @@ function editablePaths(schema: JSONSchema, data: unknown, path = ''): Set<string
  * not hold. Years, dates, clock times, ordinals, lengths of time and counts
  * under ten are left alone. With `defs`, only the text a block marks as
  * wording ("x-editable") is read, so a column name or a date key is never
- * mistaken for a number; without, every text field is.
+ * mistaken for a number; without, every text field is. With `queries`, a
+ * plain number that is a query's row limit or row count is left alone too,
+ * as is one found inside a text cell of a table.
  */
 export function lintProse(
   blocks: BlockInstance[],
   ledger: Ledger,
-  defs?: Pick<BlockSeed, 'key' | 'dataSchema'>[]
+  defs?: Pick<BlockSeed, 'key' | 'dataSchema'>[],
+  queries: Pick<ReportQuery, 'params' | 'rowCount'>[] = []
 ): ProseWarning[] {
   const warnings: ProseWarning[] = [];
+  const known = namesAndSizes(ledger, queries);
   for (const block of blocks) {
     if (block.hidden) continue;
     const def = defs?.find((d) => d.key === block.block);
@@ -135,7 +165,7 @@ export function lintProse(
       if (wording && !wording.has(field.path)) continue;
       const text = block.textOverrides?.[field.path] ?? field.text;
       for (const typed of typedNumbers(text)) {
-        if (inLedger(typed, ledger)) continue;
+        if (inLedger(typed, ledger) || (typed.plain && known.has(typed.value))) continue;
         warnings.push({
           kind: 'prose',
           blockId: block.id,

@@ -362,11 +362,14 @@ const LOCALE = 'en-CA';
 /**
  * How a figure is written in a report. A percent is stored as a fraction
  * (0.25 is shown as 25.0%). The model never supplies a formatted number.
+ * `currencyDigits` fixes the decimals of a currency, for a table column
+ * whose amounts must all be written alike.
  */
 export function formatFigure(
   value: number | string | null,
   unit: Unit,
-  currencyCode: string | null
+  currencyCode: string | null,
+  currencyDigits?: 0 | 2
 ): string {
   if (value === null) return '—';
   if (typeof value === 'string') return value;
@@ -374,7 +377,7 @@ export function formatFigure(
   switch (unit) {
     case 'currency': {
       // Cents on small amounts, whole units from a thousand up.
-      const digits = Math.abs(value) < 1000 ? 2 : 0;
+      const digits = currencyDigits ?? (Math.abs(value) < 1000 ? 2 : 0);
       try {
         return new Intl.NumberFormat(LOCALE, {
           style: 'currency',

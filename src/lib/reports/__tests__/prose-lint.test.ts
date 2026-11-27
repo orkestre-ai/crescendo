@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { BUILTIN_BLOCKS } from '../blocks/builtin';
 import { lintProse, withProseWarnings } from '../blocks/lint';
 import type { BlockInstance } from '../blocks/types';
-import { figure, LEDGER } from './blocks-fixtures';
+import { DAILY, figure, LEDGER } from './blocks-fixtures';
 
 const prose = (text: string, extra: Partial<BlockInstance> = {}): BlockInstance => ({
   id: 'b1',
@@ -127,6 +127,37 @@ test('lintProse: with the blocks’ shapes, only wording is read, never a column
   assert.deepEqual(
     warnings.map((warning) => [warning.field, warning.number]),
     [['/title', '41%']]
+  );
+});
+
+test('lintProse: a page id from a table and the size of a query are not results', () => {
+  const pages = {
+    ...DAILY,
+    key: 'pages',
+    columns: [
+      { key: 'page', format: 'text' as const },
+      { key: 'gifts', format: 'count' as const },
+    ],
+    rows: [
+      ['/page/104512/donate/1', 40],
+      ['108377', 12],
+    ],
+  };
+  const ledger = { ...LEDGER, datasets: [pages] };
+  const queries = [{ params: { limit: 250 }, rowCount: 43 }];
+  const text =
+    'Page 104512 is the main form; 108377 converts better. The list shows 250 of 43 rows.';
+  const numbers = (q?: typeof queries) =>
+    lintProse([prose(text)], ledger, undefined, q).map((warning) => warning.number);
+  assert.deepEqual(numbers(queries), []);
+  // Without the queries, their sizes read as typed numbers.
+  assert.deepEqual(numbers(), ['250', '43']);
+  // Only a plain number is excused: a result that happens to equal a limit is not.
+  assert.deepEqual(
+    lintProse([prose('We raised $250 from 1936 gifts.')], ledger, undefined, queries).map(
+      (warning) => warning.number
+    ),
+    ['$250']
   );
 });
 

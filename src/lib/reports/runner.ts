@@ -84,6 +84,8 @@ A block never holds a number you typed:
 - where it marks a slot "x-ref": "dataset", give { "dataset": "<dataset key>" };
 - inside any text, write {{fig:<figure key>}} where the number belongs, and Crescendo puts the figure there as the ledger shows it.
 
+A figure is written with its own sign: a fall of 2.3% appears as -2.3%. So put no direction word in front of a change that may be negative ("slipped {{fig:avg_change}}" would read "slipped -2.3%"). Write "the average gift changed by {{fig:avg_change}}", or record the size of the fall as its own figure (a formula, expr "0 - change") and write "fell {{fig:avg_fall}}".
+
 Crescendo keeps one figure itself: emails_removed, the number of email addresses it took out of query results before you saw them. Write {{fig:emails_removed}} where the report says what was done about personal data; do not record it.
 
 So record the figures and define the datasets a block needs before you add it. add_block checks the data against the ledger and draws the block once; if something is wrong it tells you what, and you fix it and call it again. Numbers typed into wording are checked against the ledger afterwards and listed as warnings on the report. Dates, years and times of day are fine to type.
@@ -434,15 +436,17 @@ async function drive(
 export async function lintRun(runId: string, store: ReportStore = prismaStore): Promise<number> {
   const run = await store.getRun(runId);
   if (!run) return 0;
-  const [figures, datasets, defs] = await Promise.all([
+  const [figures, datasets, defs, queries] = await Promise.all([
     store.listFigures(runId),
     store.listDatasets(runId),
     store.listBlockDefs(),
+    store.listQueries(runId),
   ]);
   const prose = lintProse(
     runBlocks(run.blocks),
     runLedger(run, figures, datasets),
-    defs.filter((def) => def.isCurrent)
+    defs.filter((def) => def.isCurrent),
+    queries
   );
   await store.updateRun(runId, { warnings: withProseWarnings(run.warnings, prose) });
   return prose.length;

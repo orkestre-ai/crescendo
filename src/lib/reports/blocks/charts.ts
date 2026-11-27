@@ -810,6 +810,16 @@ export function tableView(
 
   const isText = (column: Chosen) => dataset.columns[column.index].format === 'text';
   const lastRow = dataset.rows.length - 1;
+  // A currency column is written one way: whole units if any amount in it
+  // reaches a thousand, cents otherwise. Never $94,799 beside $433.35.
+  const currencyDigits = chosen.map((column) =>
+    dataset.rows.some((row) => {
+      const cell = row[column.index];
+      return typeof cell === 'number' && Math.abs(cell) >= 1000;
+    })
+      ? 0
+      : 2
+  );
 
   return {
     head: chosen.map((column, c) => ({
@@ -835,7 +845,12 @@ export function tableView(
         }
         const unit = dataset.columns[column.index].format;
         return {
-          text: formatFigure(cell, unit === 'text' ? 'count' : unit, opts.currencyCode),
+          text: formatFigure(
+            cell,
+            unit === 'text' ? 'count' : unit,
+            opts.currencyCode,
+            currencyDigits[c]
+          ),
           cls: align,
         };
       }),

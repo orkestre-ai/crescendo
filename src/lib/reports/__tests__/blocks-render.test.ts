@@ -22,6 +22,7 @@ import { renderGalleryHtml, renderReportHtml } from '../render';
 import { lintRun } from '../runner';
 import { memoryStore, type ReportStore } from '../store';
 import { createReportTools } from '../tools';
+import type { ReportDataset } from '../types';
 import { CHANNELS, DAILY, LEDGER, figure } from './blocks-fixtures';
 
 const block = (key: string) => BUILTIN_BLOCKS.find((b) => b.key === key)!;
@@ -571,6 +572,19 @@ test('tableView: the x column first, written as a date; numbers by their column'
     () => tableView(resolved(DAILY), { columns: [], currencyCode: null }),
     /at least one column/
   );
+});
+
+test('tableView: a currency column is written one way, whole units or cents', () => {
+  const money = (dataset: ReportDataset) =>
+    tableView(resolved(dataset), {
+      columns: [{ column: 'revenue', label: 'Revenue' }],
+      currencyCode: 'CAD',
+    }).rows.map((row) => row.cells[0].text);
+  // One amount reaches a thousand, so none shows cents.
+  assert.deepEqual(money(DAILY), ['$1,201', '$3,400', '$800']);
+  // Every amount is under a thousand, so all show cents.
+  const small = { ...DAILY, rows: DAILY.rows.map((row) => [row[0], Number(row[1]) / 10, row[2]]) };
+  assert.deepEqual(money(small), ['$120.05', '$340.00', '$80.00']);
 });
 
 // ── The reporter's block tools ─────────────────────────────────────────────
