@@ -6,6 +6,7 @@ import { getProfileById } from '@/config/ai-profiles';
 import { getToolInstructions, getTools } from '@/lib/ai/tools';
 import { contextFullStop, getGenerationOptions, getProviderConfig, getProviderModel } from '@/lib/ai/providers';
 import { getContextCap, isCompactionPart } from '@/lib/ai/context';
+import { withKeepAlive } from '@/lib/ai/keep-alive';
 import { DEFAULT_EXPLORATION_SYSTEM_PROMPT } from '@/config/ai-defaults';
 import { interpolateTemplate } from '@/lib/prompt-utils';
 import { resolveDynamicVariables } from '@/lib/ai/dynamic-template-variables';
@@ -225,7 +226,10 @@ export async function POST(
       },
     });
 
-    return result.toUIMessageStreamResponse();
+    // Finish and save the run even if the browser or a proxy drops the connection
+    result.consumeStream();
+
+    return withKeepAlive(result.toUIMessageStreamResponse());
   } catch (error) {
     const exploreLog = createExplorationLogger('unknown', 'unknown');
     exploreLog.error(error instanceof Error ? error.message : 'Unknown error', error instanceof Error ? error : undefined);
