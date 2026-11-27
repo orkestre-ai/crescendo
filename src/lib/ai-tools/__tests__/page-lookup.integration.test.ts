@@ -68,7 +68,22 @@ test('returns only the newest snapshot of each period', async () => {
   assert.equal(enGifts.last30Days.currency, 'CAD');
 });
 
-test('lists live pages only when no page numbers are given', async () => {
+test('lists live pages as short rows with site-wide totals when no page numbers are given', async () => {
   const result = await pageLookupTool.execute({});
-  assert.deepEqual((result.data as Lookup).pages.map((p) => p.enPageId), ['1001']);
+  const data = result.data as {
+    totals: { last7Days: unknown; last30Days: { from: string; to: string; gifts: number; pages: number } };
+    pages: Array<{ enPageId: string; name: string; last30Days: { gifts: number } | null }>;
+  };
+  assert.deepEqual(data.pages, [
+    {
+      enPageId: '1001',
+      name: 'Live page',
+      last30Days: { gifts: 12, amount: 600, oneTimeGifts: 10, monthlyGifts: 2 },
+    },
+  ]);
+  assert.equal(data.totals.last7Days, null);
+  assert.equal(data.totals.last30Days.gifts, 12);
+  assert.equal(data.totals.last30Days.pages, 1);
+  assert.equal(data.totals.last30Days.from, '2026-10-28');
+  assert.equal(data.totals.last30Days.to, '2026-11-26');
 });
