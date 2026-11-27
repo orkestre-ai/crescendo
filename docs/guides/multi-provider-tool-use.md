@@ -14,7 +14,7 @@ Tool use quality varies significantly across providers and models. This document
 
 ```
 chat/route.ts
-  → streamText({ model, tools: allTools, stopWhen: stepCountIs(10) })
+  → streamText({ model, tools: getTools(DEFAULT_TOOL_KEYS), stopWhen: stepCountIs(10) })
   → SDK sends tool definitions to the model
   → Model returns tool_call → SDK executes tool → loops result back
   → Repeats until model stops calling tools (up to 10 iterations)
@@ -120,7 +120,7 @@ In browser DevTools → Network tab, find the chat POST request and inspect the 
 
 ### Verify tools are being sent to the model
 
-The chat route always passes `tools: allTools` to `streamText()`. If using a model that doesn't support tools, the SDK still sends them — the model just ignores them.
+The chat route always passes `tools: getTools(DEFAULT_TOOL_KEYS)` to `streamText()`: every tool except the opt-in ones (`ga4_report`, `ga4_funnel`). If using a model that doesn't support tools, the SDK still sends them — the model just ignores them.
 
 ## Related Files
 

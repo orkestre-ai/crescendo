@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { successResponse, errorResponse } from '@/lib/api-helpers';
-import { TOOL_KEYS } from '@/config/exploration-constants';
+import { DEFAULT_TOOL_KEYS, TOOL_KEYS } from '@/config/exploration-constants';
 import { rootLogger } from '@/lib/logging';
 
 const logger = rootLogger.child({ journey: 'exploration', route: '/api/explorations' });
@@ -28,7 +28,7 @@ async function seedDefaults() {
   });
   if (existing >= expectedNames.length) return;
 
-  const allToolKeys = [...TOOL_KEYS];
+  const defaultToolKeys = [...DEFAULT_TOOL_KEYS];
   await prisma.exploration.createMany({
     data: QUICK_QUERIES.map((q, i) => ({
       name: q.label,
@@ -38,7 +38,7 @@ async function seedDefaults() {
       enabled: true,
       sortOrder: i,
       isDefault: true,
-      enabledTools: q.enabledTools ?? allToolKeys,
+      enabledTools: q.enabledTools ?? defaultToolKeys,
     })),
     skipDuplicates: true,
   });

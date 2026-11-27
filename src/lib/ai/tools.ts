@@ -1,7 +1,17 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import type { ToolResult } from '@/lib/ai-tools/types';
+import {
+  ga4FunnelInputSchema,
+  ga4FunnelTool,
+  type Ga4FunnelInput,
+} from '@/lib/ai-tools/ga4-funnel';
 import { ga4QueryTool } from '@/lib/ai-tools/ga4-query';
+import {
+  ga4ReportInputSchema,
+  ga4ReportTool,
+  type Ga4ReportInput,
+} from '@/lib/ai-tools/ga4-report';
 import { orgSearchTool } from '@/lib/ai-tools/org-search';
 import { pageContentAuditTool } from '@/lib/ai-tools/page-content-audit';
 import { pagePerformanceTool } from '@/lib/ai-tools/page-performance';
@@ -47,6 +57,22 @@ export const ga4Query = tool<
   }),
   execute: async (params) => {
     return await ga4QueryTool.execute(params as Record<string, unknown>);
+  },
+});
+
+export const ga4Report = tool<Ga4ReportInput, ToolResult>({
+  description: ga4ReportTool.schema.description,
+  inputSchema: ga4ReportInputSchema,
+  execute: async (params) => {
+    return await ga4ReportTool.execute(params as unknown as Record<string, unknown>);
+  },
+});
+
+export const ga4Funnel = tool<Ga4FunnelInput, ToolResult>({
+  description: ga4FunnelTool.schema.description,
+  inputSchema: ga4FunnelInputSchema,
+  execute: async (params) => {
+    return await ga4FunnelTool.execute(params as unknown as Record<string, unknown>);
   },
 });
 
@@ -173,7 +199,9 @@ export const pageContentAudit = tool<
  * All tools keyed by their tool name.
  */
 export const allTools = {
+  ga4_funnel: ga4Funnel,
   ga4_query: ga4Query,
+  ga4_report: ga4Report,
   org_search: orgSearch,
   page_content_audit: pageContentAudit,
   page_performance: pagePerformance,
@@ -196,7 +224,9 @@ export function getTools(enabledTools?: string[]) {
  * Existing tool skill objects keyed by name, for reading instructions.
  */
 const TOOL_SKILLS = {
+  ga4_funnel: ga4FunnelTool,
   ga4_query: ga4QueryTool,
+  ga4_report: ga4ReportTool,
   org_search: orgSearchTool,
   page_content_audit: pageContentAuditTool,
   page_performance: pagePerformanceTool,
