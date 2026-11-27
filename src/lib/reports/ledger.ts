@@ -111,8 +111,11 @@ function matchRows(
 
 // Sessions and users are counted once per row, so a sum across rows can count
 // the same session or user twice: a visit that runs past midnight falls on two
-// days, and one visit reaches many pages. Rows split by channel, device, place,
-// landing page or date range each hold their own sessions, and do add up.
+// days, and one visit reaches many pages. Even rows that hold their own sessions
+// (channel, device, landing page) do not add up exactly, because GA4 estimates
+// each row's count separately: a live run's channel rows summed to about 0.2%
+// less than GA4's total. So a total of these always comes from a query whose
+// rows differ only by date range.
 const DISTINCT_COUNTS = new Set([
   'sessions',
   'engagedSessions',
@@ -162,8 +165,13 @@ function splittingDimension(
   headers: string[],
   rows: Record<string, string>[]
 ): string | undefined {
+  // Metric columns hold numbers; any other column is a dimension.
+  const isDimension = (header: string) =>
+    TIME_DIMENSIONS.has(header) ||
+    HIT_DIMENSION.test(header) ||
+    rows.some((row) => row[header] !== undefined && Number.isNaN(Number(row[header])));
   const splits = DISTINCT_COUNTS.has(column)
-    ? (header: string) => TIME_DIMENSIONS.has(header) || HIT_DIMENSION.test(header)
+    ? (header: string) => header !== 'dateRange' && isDimension(header)
     : FIRST_TIME_COUNTS.has(column)
       ? (header: string) => HIT_DIMENSION.test(header)
       : null;
@@ -216,7 +224,7 @@ export function computeFigure(
         const split = splittingDimension(source.column, from.headers, rows);
         if (split) {
           throw new LedgerError(
-            `"${source.column}" does not add up across the "${split}" rows of ${source.query}: the same session or user is counted in more than one of them, so the sum is a number GA4 never shows. Run a query without "${split}" (keep only dimensions such as sessionDefaultChannelGroup, deviceCategory, landingPage or dateRange) and record the figure as a cell.`
+            `"${source.column}" does not add up across the "${split}" rows of ${source.query}: the same session or user is counted in more than one of them, so the sum is a number GA4 never shows. Run a query without "${split}" (for a total, no dimension but dateRange; narrow it with a filter if needed) and record the figure as a cell.`
           );
         }
         return { value: sum, text: null, rows: rows.length };

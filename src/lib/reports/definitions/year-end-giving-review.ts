@@ -86,7 +86,7 @@ RULES THAT APPLY THROUGHOUT
 - Use purchaseRevenue for gift amounts whenever the donation event has it. eventValue adds currencies together without converting them, so do not use it for money unless the donation event has no purchaseRevenue, and then say the totals may mix currencies.
 - Never filter a whole report to the donation event to get a conversion rate: that filters the sessions too. Use the metric keyEvents:<event name>, or two reports combined.
 - Conversion rate: lead with the donation-page rate (gifts divided by sessions that reached a donation page). Give the site-wide rate second. Do not use GA4's key event rate if other key events exist.
-- Sessions and users do not add up across days, hours or pages. Take the total sessions or users for a period from a report without that dimension (by dateRange or channel is fine), not from the daily rows.
+- Sessions and users do not add up across rows, not even across channels or devices. Take the total sessions or users for a period from a report with no dimension but dateRange.
 - Keep reports small: only the dimensions and metrics you need, sorted, with a row limit. Get daily totals first, then break down only the days that matter. Expect 40 to 60 reports in all.
 - To compare two periods, ask for both date ranges in one report and name them. In a dataset, join the query to itself with a "where" on dateRange to put the periods side by side, and add the change as a computed column.
 - Hours are in the property's time zone. If most donors are plainly in another one, say so, and convert the hours that matter, such as the midnight deadline on 31 December.

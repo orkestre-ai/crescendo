@@ -225,8 +225,12 @@ test('computeFigure aggregate: sessions and users do not add up across days or p
     computeFigure({ kind: 'aggregate', query: 'q1', column: 'sessions', agg: 'avg' }, ctx).value,
     100
   );
-  // Each session has one channel, so channels add up.
-  assert.equal(sum('q2', 'sessions', [{ column: 'dateRange', op: '=', value: 'this_year' }]), 700);
+  // Each session has one channel, but GA4 estimates each row's count on its
+  // own, so even channels do not add up to GA4's total.
+  assert.throws(
+    () => sum('q2', 'sessions', [{ column: 'dateRange', op: '=', value: 'this_year' }]),
+    /across the "sessionDefaultChannelGroup" rows of q2/
+  );
 
   const split: LedgerContext = {
     queries: {
@@ -250,8 +254,18 @@ test('computeFigure aggregate: sessions and users do not add up across days or p
   };
   const splitSum = (query: string, column: string, where?: RowMatch[]) =>
     computeFigure({ kind: 'aggregate', query, column, agg: 'sum', where }, split).value;
-  // Rows of one day, split by device, add up; rows of two days do not.
-  assert.equal(splitSum('q1', 'totalUsers', [{ column: 'date', op: '=', value: '20261120' }]), 15);
+  // One row adds up to itself; rows split by device or by day do not.
+  assert.equal(
+    splitSum('q1', 'totalUsers', [
+      { column: 'date', op: '=', value: '20261120' },
+      { column: 'deviceCategory', op: '=', value: 'mobile' },
+    ]),
+    10
+  );
+  assert.throws(
+    () => splitSum('q1', 'totalUsers', [{ column: 'date', op: '=', value: '20261120' }]),
+    /across the "deviceCategory" rows/
+  );
   assert.throws(() => splitSum('q1', 'totalUsers'), /"totalUsers" does not add up across/);
   // A user is new on one day only, but can see many pages.
   assert.equal(splitSum('q1', 'newUsers'), 9);
@@ -282,21 +296,23 @@ test('computeFigure aggregate: where narrows the rows, and reports how many it r
 
 test('computeFigure aggregate: every match operator', () => {
   const sum = (where: RowMatch[]) =>
-    computeFigure({ kind: 'aggregate', query: 'q2', column: 'sessions', agg: 'sum', where }, ctx)
-      .value;
+    computeFigure(
+      { kind: 'aggregate', query: 'q2', column: 'purchaseRevenue', agg: 'sum', where },
+      ctx
+    ).value;
 
-  assert.equal(sum([{ column: 'sessionDefaultChannelGroup', op: '!=', value: 'Email' }]), 500);
+  assert.equal(sum([{ column: 'sessionDefaultChannelGroup', op: '!=', value: 'Email' }]), 4000);
   assert.equal(
     sum([{ column: 'sessionDefaultChannelGroup', op: 'contains', value: 'Search' }]),
-    500
+    4000
   );
   assert.equal(
     sum([{ column: 'sessionDefaultChannelGroup', op: 'in', value: ['Email', 'Direct'] }]),
-    900
+    17000
   );
-  // Numbers compare as numbers: "1000" is not below "400" here.
-  assert.equal(sum([{ column: 'purchaseRevenue', op: '>=', value: '3000' }]), 1200);
-  assert.equal(sum([{ column: 'purchaseRevenue', op: '<=', value: '1000' }]), 200);
+  // Numbers compare as numbers, not as text.
+  assert.equal(sum([{ column: 'sessions', op: '>=', value: '300' }]), 20000);
+  assert.equal(sum([{ column: 'sessions', op: '<=', value: '200' }]), 1000);
   // Text compares exactly, with case.
   assert.equal(sum([{ column: 'sessionDefaultChannelGroup', op: '=', value: 'email' }]), 0);
 });
@@ -663,7 +679,7 @@ test('computeDataset: a running total follows the sorted order', () => {
   ]);
 });
 
-test('computeDataset: the total row adds counts and money, and works rates out again from the totals', () => {
+test('computeDataset: the total row adds money, leaves sessions over channels empty, and works rates out again', () => {
   const dataset = computeDataset(
     {
       from: 'q2',
@@ -679,8 +695,9 @@ test('computeDataset: the total row adds counts and money, and works rates out a
     ctx
   );
   assert.equal(dataset.rows.length, 4);
-  // 12000 / 700, not the sum of the three channels' rates.
-  assert.deepEqual(dataset.rows[3], ['Total', 700, 12000, 12000 / 700]);
+  // Channel sessions do not add up to GA4's total, so neither they nor the rate
+  // worked out from them get a total.
+  assert.deepEqual(dataset.rows[3], ['Total', null, 12000, null]);
 });
 
 test('computeDataset: the total row leaves sessions over days empty, and what is worked out from them', () => {
@@ -712,10 +729,10 @@ test('computeDataset: the total of a running-total column is its last value, and
   const rates: LedgerContext = {
     queries: {
       q1: {
-        headers: ['deviceCategory', 'sessions', 'bounceRate'],
+        headers: ['deviceCategory', 'transactions', 'bounceRate'],
         rows: [
-          { deviceCategory: 'mobile', sessions: '10', bounceRate: '0.5' },
-          { deviceCategory: 'desktop', sessions: '30', bounceRate: '0.25' },
+          { deviceCategory: 'mobile', transactions: '10', bounceRate: '0.5' },
+          { deviceCategory: 'desktop', transactions: '30', bounceRate: '0.25' },
         ],
       },
     },
@@ -726,10 +743,10 @@ test('computeDataset: the total of a running-total column is its last value, and
       from: 'q1',
       select: [
         { column: 'deviceCategory' },
-        { column: 'sessions', format: 'count' },
+        { column: 'transactions', format: 'count' },
         { column: 'bounceRate', format: 'percent' },
       ],
-      cumulative: ['sessions'],
+      cumulative: ['transactions'],
       totalRow: true,
     },
     rates
