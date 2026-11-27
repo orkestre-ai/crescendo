@@ -11,6 +11,9 @@ const INSIGHTS_RETENTION_DAYS = 30;
 /**
  * Run data cleanup: delete old snapshots, jobs, insights,
  * and mark stale recommendations as superseded.
+ *
+ * Report runs are not cleaned up here. Each run, with its queries, ledger and
+ * events, is kept until a person deletes it.
  */
 export async function runCleanup(): Promise<{
   snapshotsDeleted: number;
