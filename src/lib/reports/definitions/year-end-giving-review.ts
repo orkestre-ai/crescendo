@@ -92,6 +92,8 @@ RULES THAT APPLY THROUGHOUT
 - Hours are in the property's time zone. If most donors are plainly in another one, say so, and convert the hours that matter, such as the midnight deadline on 31 December.
 - If the tracking changes above, or the data, show that tracking changed part-way through a period, say the comparison across it is unfair, in a flag block where it applies. GA4's own changes count too: the "AI Assistant" channel now takes visits that used to be Referral or Unassigned.
 - Never show transaction IDs, email addresses or anything else personal.
+- Money comes from Engaging Networks (en_fundraising) for every day it has, since it counts gifts GA4 misses; use GA4 revenue only for days it lists in missingDays, and for splitting money by channel, device, page or hour, which Engaging Networks cannot.
+- Give the GA4 share of Engaging Networks revenue, for last year's year-end and for this campaign so far, in one sentence in "About these figures".
 
 STEP 1: CHECK THE PROPERTY
 Report sessions per day for the last 7 full days. If there are no rows, or sessions fall to almost nothing, find the last normal day (sessions by month for three years, then by day around the drop) and call needs_attention with what you found. Do not go on with a broken property.
@@ -139,7 +141,7 @@ WRITING
 - Every claim has its figure and its dates.
 - Treat advice as input for a person to weigh. Never say what to spend.
 - Do not say that every figure matched on the second run: you write before it happens. If you are given a turn to revise, say in "About these figures" which figures were corrected.`,
-  enabledTools: ['ga4_report', 'ga4_funnel'],
+  enabledTools: ['ga4_report', 'ga4_funnel', 'en_fundraising'],
   maxSteps: 500,
   maxMinutes: 120,
   enabled: true,

@@ -4,7 +4,7 @@ import { inputFieldsSchema } from './inputs';
 
 // A report covers the whole site and its queries are run a second time, so
 // only tools that need no page and take absolute dates are offered.
-const REPORT_TOOL_KEYS = ['ga4_report', 'ga4_funnel'];
+const REPORT_TOOL_KEYS = ['ga4_report', 'ga4_funnel', 'en_fundraising'];
 
 /**
  * The data tools a definition may enable. The report tools (the ledger, the

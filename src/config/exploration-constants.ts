@@ -31,6 +31,12 @@ export const AVAILABLE_TOOLS: ReadonlyArray<{
     optIn: true,
   },
   {
+    key: 'en_fundraising',
+    label: 'Engaging Networks giving',
+    description: 'Daily gifts and amounts by page from Engaging Networks, one-time and monthly',
+    optIn: true,
+  },
+  {
     key: 'org_search',
     label: 'Org Search',
     description: 'Search organization context',

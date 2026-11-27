@@ -79,6 +79,20 @@ export const schedulerLogger = {
     );
   },
 
+  enDailyCompleted(result: Record<string, unknown>) {
+    log.info(
+      { event: 'scheduler.en_daily.completed', ...result },
+      `Daily Engaging Networks giving collected`
+    );
+  },
+
+  enDailyError(err: Error) {
+    log.error(
+      { event: 'scheduler.en_daily.error', err },
+      `Error collecting daily Engaging Networks giving`
+    );
+  },
+
   // ─── Suppressed Events (TRACE — invisible) ────────────────
 
   tick() {
