@@ -239,6 +239,21 @@ test('recheckRun: the comparison is exact, with no tolerance', async () => {
   assert.equal((await byKey(store, runId)).revenue.value, 550.51);
 });
 
+test('recheckRun: floating-point noise in GA4 decimals is not a change', async () => {
+  const { store, runId } = await seededRun();
+  // Seen live: the same revenue came back with noise in the 11th decimal.
+  const second = DAILY.map((row) =>
+    row.date === '20261119' ? { ...row, purchaseRevenue: '250.50000000000003' } : row
+  );
+  const { fake } = fakeTool({ rows: second });
+
+  const result = await recheckRun(runId, store, { fake_report: fake });
+
+  assert.deepEqual(result, { changedQueries: [], changedFigures: [], changedDatasets: [] });
+  assert.equal((await store.getQuery(runId, 'q1'))?.recheck?.matched, true);
+  assert.equal((await byKey(store, runId)).revenue.recheckStatus, 'matched');
+});
+
 test('recheckRun: a stated figure stays stated', async () => {
   const { store, runId } = await seededRun();
   const { fake } = fakeTool({ rows: [{ date: '20261119', sessions: '1', purchaseRevenue: '1' }] });

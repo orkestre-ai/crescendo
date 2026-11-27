@@ -28,10 +28,23 @@ export interface RecheckResult {
 const SAMPLE_ROWS = 20;
 const errorMessage = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
+// GA4 sums decimals in floating point, so the same revenue can come back as
+// 98288.260012 one time and 98288.260012000013 the next. Six decimal places
+// is far below a cent and far above that noise.
+const DECIMAL = /^-?\d+\.\d+$/;
+const steady = (value: unknown) =>
+  typeof value === 'string' && DECIMAL.test(value) ? Number(value).toFixed(6) : value;
+
 // One line per row with its keys in a fixed order, so row order does not matter.
 function canonicalRows(result: unknown): string[] {
   return queryTable(result)
-    .rows.map((row) => JSON.stringify(Object.entries(row).sort(([a], [b]) => (a < b ? -1 : 1))))
+    .rows.map((row) =>
+      JSON.stringify(
+        Object.entries(row)
+          .map(([key, value]): [string, unknown] => [key, steady(value)])
+          .sort(([a], [b]) => (a < b ? -1 : 1))
+      )
+    )
     .sort();
 }
 
@@ -64,8 +77,8 @@ function compareRows(before: string[], after: string[]) {
 /**
  * Re-run every saved query of a run with its stored params, compare the rows
  * with the first run, then recompute every dataset and figure from the new
- * results. The comparison is exact: any difference corrects the figures that
- * rest on it. A query that cannot be run again keeps its first result, and
+ * results. The comparison is exact apart from floating-point noise in GA4's
+ * decimals: any real difference corrects the figures that rest on it. A query that cannot be run again keeps its first result, and
  * its figures stay unchecked.
  *
  * `tools` are the data tools by key; it defaults to the shared registry.
