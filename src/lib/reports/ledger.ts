@@ -109,6 +109,78 @@ function matchRows(
   return source.rows.filter((row) => where.every((match) => matches(row, match)));
 }
 
+// Sessions and users are counted once per row, so a sum across rows can count
+// the same session or user twice: a visit that runs past midnight falls on two
+// days, and one visit reaches many pages. Even rows that hold their own sessions
+// (channel, device, landing page) do not add up exactly, because GA4 estimates
+// each row's count separately: a live run's channel rows summed to about 0.2%
+// less than GA4's total. So a total of these always comes from a query whose
+// rows differ only by date range.
+const DISTINCT_COUNTS = new Set([
+  'sessions',
+  'engagedSessions',
+  'totalUsers',
+  'activeUsers',
+  'active1DayUsers',
+  'active7DayUsers',
+  'active28DayUsers',
+  'totalPurchasers',
+]);
+// Counted once in a user's life, so these add up across days but not across pages or events.
+const FIRST_TIME_COUNTS = new Set(['newUsers', 'firstTimePurchasers']);
+const TIME_DIMENSIONS = new Set([
+  'date',
+  'dateHour',
+  'dateHourMinute',
+  'day',
+  'dayOfWeek',
+  'dayOfWeekName',
+  'hour',
+  'minute',
+  'week',
+  'isoWeek',
+  'isoYear',
+  'isoYearIsoWeek',
+  'month',
+  'year',
+  'yearMonth',
+  'yearWeek',
+  'nthDay',
+  'nthHour',
+  'nthMinute',
+  'nthMonth',
+  'nthWeek',
+  'nthYear',
+]);
+// Page, screen, event and item dimensions: one session can appear in many rows.
+const HIT_DIMENSION =
+  /^(page[A-Z]|fullPageUrl$|hostName$|unifiedPage|unifiedScreen|eventName$|customEvent:|isKeyEvent$|item[A-Z]|transactionId$|content[A-Z]|link[A-Z]|file[A-Z]|video[A-Z]|searchTerm$|percentScrolled$|outbound$|method$)/;
+
+/**
+ * The dimension that makes a sum of `column` over `rows` count a session or
+ * user twice: one that splits them and differs between the rows.
+ */
+function splittingDimension(
+  column: string,
+  headers: string[],
+  rows: Record<string, string>[]
+): string | undefined {
+  // Metric columns hold numbers; any other column is a dimension.
+  const isDimension = (header: string) =>
+    TIME_DIMENSIONS.has(header) ||
+    HIT_DIMENSION.test(header) ||
+    rows.some((row) => row[header] !== undefined && Number.isNaN(Number(row[header])));
+  const splits = DISTINCT_COUNTS.has(column)
+    ? (header: string) => header !== 'dateRange' && isDimension(header)
+    : FIRST_TIME_COUNTS.has(column)
+      ? (header: string) => HIT_DIMENSION.test(header)
+      : null;
+  if (!splits) return undefined;
+  return headers.find(
+    (header) => splits(header) && new Set(rows.map((row) => row[header])).size > 1
+  );
+}
+
 /**
  * Work out one figure. `rows` is how many rows of the query it read, so the
  * model can see a filter that matched nothing. With unit "text" a cell is
@@ -148,7 +220,15 @@ export function computeFigure(
       requireColumn(from, source.column, source.query);
       const values = rows.map((row) => toNumber(row[source.column], source.column));
       const sum = values.reduce((total, value) => total + value, 0);
-      if (source.agg === 'sum') return { value: sum, text: null, rows: rows.length };
+      if (source.agg === 'sum') {
+        const split = splittingDimension(source.column, from.headers, rows);
+        if (split) {
+          throw new LedgerError(
+            `"${source.column}" does not add up across the "${split}" rows of ${source.query}: the same session or user is counted in more than one of them, so the sum is a number GA4 never shows. Run a query without "${split}" (for a total, no dimension but dateRange; narrow it with a filter if needed) and record the figure as a cell.`
+          );
+        }
+        return { value: sum, text: null, rows: rows.length };
+      }
       if (values.length === 0) {
         throw new LedgerError(
           `No rows of ${source.query} matched, so there is no ${source.agg} of "${source.column}".`
@@ -218,6 +298,12 @@ export function computeDataset(
     addColumn(pick.as ?? pick.column, pick.format ?? 'text');
   }
   const sourceRows = matchRows(from, spec.where, spec.from);
+  // Columns of sessions or users that would not add up to a true total.
+  const noTotal = new Set(
+    spec.select
+      .filter((pick) => splittingDimension(pick.column, from.headers, sourceRows))
+      .map((pick) => pick.as ?? pick.column)
+  );
   let rows = sourceRows.map((row) => {
     const out: Record<string, Cell> = {};
     for (const pick of spec.select) {
@@ -235,8 +321,17 @@ export function computeDataset(
       requireColumn(other, pick.column, join.query);
       addColumn(pick.as, pick.format ?? 'text');
     }
+    const joined = matchRows(other, join.where, join.query);
+    for (const pick of join.select) {
+      if (
+        splittingDimension(pick.column, from.headers, sourceRows) ||
+        splittingDimension(pick.column, other.headers, joined)
+      ) {
+        noTotal.add(pick.as);
+      }
+    }
     const byKey = new Map<string, Record<string, string>>();
-    for (const row of matchRows(other, join.where, join.query)) {
+    for (const row of joined) {
       if (byKey.has(row[join.on])) {
         throw new LedgerError(
           `Cannot join ${join.query} on "${join.on}": "${row[join.on]}" appears in more than one row. Narrow it with "where".`
@@ -320,14 +415,14 @@ export function computeDataset(
 
   // The total row: counts and money add up; a rate cannot be added, so a
   // selected rate is left empty and a computed one is worked out again from
-  // the totals.
+  // the totals. Sessions or users split by day or page are left empty too.
   let total: Record<string, Cell> | null = null;
   if (spec.totalRow) {
     total = {};
     const label = columns.find((column) => column.format === 'text');
     for (const column of columns) {
       if (computed.some((c) => c.key === column.key)) continue;
-      if (column.format === 'count' || column.format === 'currency') {
+      if ((column.format === 'count' || column.format === 'currency') && !noTotal.has(column.key)) {
         total[column.key] = rows.reduce(
           (sum, row) =>
             sum + (typeof row[column.key] === 'number' ? (row[column.key] as number) : 0),

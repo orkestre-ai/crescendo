@@ -94,6 +94,7 @@ model FundraisingPage {
   recommendations        OptimizationRecommendation[]
   debugJobs              CollectionJob[]  // Jobs targeting this specific page (debug mode)
   fundraisingSnapshots   FundraisingSnapshot[]
+  enDailyGiving          EnDailyGiving[]
   contentSnapshots       ContentSnapshot[]
   insights               PageInsight[]
   conversations          Conversation[]
@@ -466,6 +467,31 @@ model FundraisingSnapshot {
   @@unique([pageId, periodType, periodStart, periodEnd])
   @@index([pageId, periodType])
   @@index([fetchedAt])
+}
+
+/// One day of giving on one page, from the EN Public API summary for that day.
+/// A row of zeros means the day was fetched and nothing came in; a missing
+/// row means the day was never fetched.
+model EnDailyGiving {
+  id        String   @id @default(cuid())
+
+  pageId    String
+  page      FundraisingPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+
+  // In the reporting currency
+  totalAmount       Float
+  donationCount     Int
+  singleAmount      Float
+  singleCount       Int
+  recurringAmount   Float
+  recurringCount    Int
+
+  currency          String
+  fetchedAt         DateTime
+
+  @@unique([pageId, date])
+  @@index([date])
 }
 
 // ============================================================================

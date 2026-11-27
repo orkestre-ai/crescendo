@@ -2,6 +2,11 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import type { ToolResult } from '@/lib/ai-tools/types';
 import {
+  enFundraisingInputSchema,
+  enFundraisingTool,
+  type EnFundraisingInput,
+} from '@/lib/ai-tools/en-fundraising';
+import {
   ga4FunnelInputSchema,
   ga4FunnelTool,
   type Ga4FunnelInput,
@@ -74,6 +79,14 @@ export const ga4Funnel = tool<Ga4FunnelInput, ToolResult>({
   inputSchema: ga4FunnelInputSchema,
   execute: async (params) => {
     return await ga4FunnelTool.execute(params as unknown as Record<string, unknown>);
+  },
+});
+
+export const enFundraising = tool<EnFundraisingInput, ToolResult>({
+  description: enFundraisingTool.schema.description,
+  inputSchema: enFundraisingInputSchema,
+  execute: async (params) => {
+    return await enFundraisingTool.execute(params as unknown as Record<string, unknown>);
   },
 });
 
@@ -221,6 +234,7 @@ export const pageLookup = tool<
  * All tools keyed by their tool name.
  */
 export const allTools = {
+  en_fundraising: enFundraising,
   ga4_funnel: ga4Funnel,
   ga4_query: ga4Query,
   ga4_report: ga4Report,
@@ -247,6 +261,7 @@ export function getTools(enabledTools?: string[]) {
  * Existing tool skill objects keyed by name, for reading instructions.
  */
 const TOOL_SKILLS = {
+  en_fundraising: enFundraisingTool,
   ga4_funnel: ga4FunnelTool,
   ga4_query: ga4QueryTool,
   ga4_report: ga4ReportTool,

@@ -282,7 +282,7 @@ for (const definition of BUILTIN_REPORT_DEFINITIONS) {
 
 test('year-end giving review: the prompt keeps the analysis and leaves out what Crescendo does', () => {
   const { prompt, enabledTools, inputs } = BUILTIN_REPORT_DEFINITIONS[0];
-  assert.deepEqual(enabledTools, ['ga4_report', 'ga4_funnel']);
+  assert.deepEqual(enabledTools, ['ga4_report', 'ga4_funnel', 'en_fundraising']);
   assert.deepEqual(
     inputs.map((field) => field.key),
     [
