@@ -3,6 +3,8 @@
  * Prisma ones, so the in-memory store and the tests need no database.
  */
 
+import type { ReportInputField } from './definitions/inputs';
+
 export type ReportRunStatus =
   | 'QUEUED'
   | 'RUNNING'
@@ -76,7 +78,7 @@ export interface DefinitionSnapshot {
 export interface ReportDefinition extends DefinitionSnapshot {
   id: string;
   description: string;
-  inputs: unknown;
+  inputs: ReportInputField[];
   isDefault: boolean;
   enabled: boolean;
   sortOrder: number;

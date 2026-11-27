@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { builtinBlockDefs, ensureBuiltinBlocks } from './blocks/builtin';
 import type { BlockDef } from './blocks/types';
+import { parseInputFields } from './definitions/inputs';
 import {
   ACTIVE_STATUSES,
   type DefinitionSnapshot,
@@ -61,6 +62,10 @@ export interface ReportStore {
   /** The run that is queued, running or rechecking, if there is one. */
   findActiveRun(): Promise<ReportRun | null>;
   updateRun(id: string, patch: ReportRunPatch): Promise<ReportRun>;
+  /** Every run, newest first. */
+  listRuns(): Promise<ReportRun[]>;
+  /** Removes a run with its queries, ledger and events. Nothing else deletes a run. */
+  deleteRun(id: string): Promise<void>;
 
   appendEvent(
     runId: string,
@@ -170,7 +175,7 @@ const toDefinition = (row: DefinitionRow): ReportDefinition => ({
   name: row.name,
   description: row.description,
   prompt: row.prompt,
-  inputs: row.inputs,
+  inputs: parseInputFields(row.inputs),
   enabledTools: row.enabledTools,
   maxSteps: row.maxSteps,
   maxMinutes: row.maxMinutes,
@@ -231,6 +236,15 @@ export const prismaStore: ReportStore = {
       },
     });
     return toRun(row);
+  },
+
+  async listRuns() {
+    const rows = await prisma.reportRun.findMany({ orderBy: { createdAt: 'desc' } });
+    return rows.map(toRun);
+  },
+
+  async deleteRun(id) {
+    await prisma.reportRun.delete({ where: { id } });
   },
 
   async appendEvent(runId, type, message, data) {
@@ -344,6 +358,8 @@ export function memoryStore(
   const definitions = seed.definitions ?? [];
   const blockDefs = seed.blockDefs ?? builtinBlockDefs();
   const runs = new Map<string, ReportRun>();
+  // Counted, not read from the map's size: a deleted run's id is not given out again.
+  let created = 0;
   const events: ReportEvent[] = [];
   const queries: ReportQuery[] = [];
   const figures: ReportFigure[] = [];
@@ -368,7 +384,7 @@ export function memoryStore(
     async createRun(data) {
       const run: ReportRun = {
         ...copy(data),
-        id: `run${runs.size + 1}`,
+        id: `run${++created}`,
         status: 'QUEUED',
         statusReason: null,
         blocks: [],
@@ -400,6 +416,18 @@ export function memoryStore(
     async updateRun(id, patch) {
       const run = Object.assign(requireRun(id), copy(patch));
       return copy(run);
+    },
+
+    async listRuns() {
+      return copy([...runs.values()].reverse());
+    },
+
+    async deleteRun(id) {
+      requireRun(id);
+      runs.delete(id);
+      for (const list of [events, queries, figures, datasets] as { runId: string }[][]) {
+        for (let i = list.length - 1; i >= 0; i--) if (list[i].runId === id) list.splice(i, 1);
+      }
     },
 
     async appendEvent(runId, type, message, data) {

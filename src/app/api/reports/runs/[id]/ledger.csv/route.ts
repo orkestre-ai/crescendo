@@ -4,6 +4,7 @@ import { reportFileName } from '@/lib/reports/filename';
 import { ledgerToCsv } from '@/lib/reports/ledger-csv';
 import { attachment } from '@/lib/reports/response';
 import { prismaStore } from '@/lib/reports/store';
+import { getOrCreateSettings } from '@/lib/settings';
 
 /**
  * GET /api/reports/runs/[id]/ledger.csv
@@ -22,12 +23,13 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       prismaStore.listFigures(id),
       prismaStore.listQueries(id),
     ]);
+    const { organizationName } = await getOrCreateSettings();
     // The byte-order mark tells Excel the file is UTF-8, so "$" and "−" survive.
     return new NextResponse(`﻿${ledgerToCsv(figures, queries)}`, {
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
         'Cache-Control': 'no-store',
-        ...attachment(reportFileName(run, 'csv')),
+        ...attachment(reportFileName(run, 'csv', organizationName)),
       },
     });
   } catch (error) {

@@ -4,11 +4,11 @@ import { estimateTokens } from '@/lib/ai/context';
 import { getGenerationOptions, getProviderConfig, getProviderModel } from '@/lib/ai/providers';
 import { allTools, getToolInstructions } from '@/lib/ai/tools';
 import { rootLogger } from '@/lib/logging';
-import { interpolateTemplate } from '@/lib/prompt-utils';
 import { getOrCreateSettings } from '@/lib/settings';
 import { lintProse, withProseWarnings } from './blocks/lint';
-import { runBlocks } from './blocks/resolve';
+import { runBlocks, runLedger } from './blocks/resolve';
 import { pruneMessages } from './context';
+import { buildReportPrompt } from './definitions/inputs';
 import { datasetQueryKeys } from './ledger';
 import { recheckRun, type RecheckResult } from './recheck';
 import { prismaStore, type ReportStore } from './store';
@@ -53,6 +53,8 @@ export interface RunDeps {
   property?: () => Promise<{ timeZone: string; currencyCode: string }>;
   /** The input cap per call, in tokens. Defaults to the Reports setting. */
   maxContext?: number;
+  /** Fills {{organizationName}} in the prompt. Defaults to the name in Settings. */
+  organizationName?: string;
 }
 
 const REPORTER_PREAMBLE = `You are the analyst behind a Crescendo report. You work alone and in the background: nobody answers questions while you run, so decide for yourself and keep going until the report is done.
@@ -81,6 +83,8 @@ A block never holds a number you typed:
 - where a block's shape marks a slot "x-ref": "figure", give { "figure": "<figure key>" };
 - where it marks a slot "x-ref": "dataset", give { "dataset": "<dataset key>" };
 - inside any text, write {{fig:<figure key>}} where the number belongs, and Crescendo puts the figure there as the ledger shows it.
+
+Crescendo keeps one figure itself: emails_removed, the number of email addresses it took out of query results before you saw them. Write {{fig:emails_removed}} where the report says what was done about personal data; do not record it.
 
 So record the figures and define the datasets a block needs before you add it. add_block checks the data against the ledger and draws the block once; if something is wrong it tells you what, and you fix it and call it again. Numbers typed into wording are checked against the ledger afterwards and listed as warnings on the report. Dates, years and times of day are fine to type.
 
@@ -231,6 +235,7 @@ async function drive(
   let model = deps.model;
   let generation: ReturnType<typeof getGenerationOptions> = {};
   let maxContext = deps.maxContext;
+  let organizationName = deps.organizationName;
   if (!model) {
     const settings = await getOrCreateSettings();
     const config = await getProviderConfig('reports', settings);
@@ -240,6 +245,7 @@ async function drive(
     model = getProviderModel(config.provider, config.modelId, config.apiKey, config.baseUrl);
     generation = getGenerationOptions(config, 'reports');
     maxContext ??= settings.aiReportsMaxContext;
+    organizationName ??= settings.organizationName ?? undefined;
     await store.appendEvent(runId, 'status', `Running on ${config.modelId}`, {
       status: 'RUNNING',
       provider: config.provider,
@@ -270,12 +276,12 @@ async function drive(
   const system = [
     REPORTER_PREAMBLE,
     `## Data tools\n\n${getToolInstructions(definition.enabledTools)}`,
-    `## This report: ${definition.name}\n\n${interpolateTemplate(definition.prompt, {
-      ...run.inputs,
+    `## This report: ${definition.name}\n\n${buildReportPrompt(definition, run.inputs, {
       today,
+      organizationName: organizationName ?? '',
       timeZone: property.timeZone,
       currency: property.currencyCode,
-      preparedBy: run.preparedBy,
+      preparedBy: run.preparedBy ?? '',
     })}`,
   ].join('\n\n');
 
@@ -435,7 +441,7 @@ export async function lintRun(runId: string, store: ReportStore = prismaStore): 
   ]);
   const prose = lintProse(
     runBlocks(run.blocks),
-    { figures, datasets, currencyCode: run.currencyCode },
+    runLedger(run, figures, datasets),
     defs.filter((def) => def.isCurrent)
   );
   await store.updateRun(runId, { warnings: withProseWarnings(run.warnings, prose) });

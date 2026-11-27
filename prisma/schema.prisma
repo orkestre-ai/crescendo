@@ -394,6 +394,7 @@ model AppSettings {
 
   // Reporting Configuration
   reportingCurrency   String    @default("CAD")  // USD, CAD, GBP, EUR, AUD
+  organizationName    String?   // Named in reports and in the files they download as
 
   // Timestamps
   createdAt DateTime @default(now())
@@ -597,6 +598,7 @@ model ReportDefinition {
   isDefault    Boolean  @default(false)
   enabled      Boolean  @default(true)
   sortOrder    Int      @default(0)
+  editedAt     DateTime?                 // Set when a person edits it; a built-in is then no longer updated from code
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

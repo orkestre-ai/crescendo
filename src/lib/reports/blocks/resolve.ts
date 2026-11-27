@@ -1,3 +1,5 @@
+import { formatFigure } from '../ledger';
+import type { ReportDataset, ReportFigure, ReportRun } from '../types';
 import type { BlockInstance, Ledger, ResolvedDataset, ResolvedFigure } from './types';
 
 /** Thrown when block data points at a figure or table the ledger does not hold. */
@@ -5,6 +7,39 @@ export class BlockDataError extends Error {}
 
 /** {{fig:revenue_2026}} inside a text field: the figure, as the ledger shows it. */
 export const FIGURE_TOKEN = /\{\{\s*fig:\s*([A-Za-z0-9_]+)\s*\}\}/g;
+
+/** The one figure Crescendo keeps itself: the email addresses it removed from query results. */
+export const EMAILS_REMOVED = 'emails_removed';
+
+/**
+ * The ledger a run's blocks read from: the figures and tables the model
+ * recorded, and the count of removed email addresses, which no query holds
+ * and the model must not type.
+ */
+export function runLedger(
+  run: Pick<ReportRun, 'id' | 'redactedEmailCount' | 'currencyCode'>,
+  figures: ReportFigure[],
+  datasets: ReportDataset[]
+): Ledger {
+  const removed: ReportFigure = {
+    runId: run.id,
+    key: EMAILS_REMOVED,
+    label: 'Email addresses removed from query results',
+    unit: 'count',
+    value: run.redactedEmailCount,
+    text: null,
+    display: formatFigure(run.redactedEmailCount, 'count', run.currencyCode),
+    source: {
+      kind: 'stated',
+      value: run.redactedEmailCount,
+      reason: 'Counted by Crescendo as query results arrived.',
+    },
+    queryKeys: [],
+    recheckStatus: 'stated',
+    previousValue: null,
+  };
+  return { figures: [...figures, removed], datasets, currencyCode: run.currencyCode };
+}
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);

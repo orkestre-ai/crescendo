@@ -1,6 +1,6 @@
 import { renderBlock } from './blocks/engine';
-import { resolveBlockData, runBlocks } from './blocks/resolve';
-import type { BlockDef, Ledger } from './blocks/types';
+import { resolveBlockData, runBlocks, runLedger } from './blocks/resolve';
+import type { BlockDef } from './blocks/types';
 import { validateBlockCss } from './blocks/validate';
 import { renderShell, type RenderMode } from './design/shell';
 import { prismaStore, type ReportStore } from './store';
@@ -54,7 +54,7 @@ export async function renderReportHtml(
     store.listDatasets(runId),
     store.listBlockDefs(),
   ]);
-  const ledger: Ledger = { figures, datasets, currencyCode: run.currencyCode };
+  const ledger = runLedger(run, figures, datasets);
 
   const used: BlockDef[] = [];
   const parts: string[] = [];

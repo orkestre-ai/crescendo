@@ -73,6 +73,8 @@ export interface SettingsResponse {
   };
   reporting: {
     currency: ReportingCurrency;
+    /** The organisation reports are written for. */
+    organizationName: string | null;
   };
   anthropic: {
     isConfigured: boolean;
@@ -103,9 +105,12 @@ export interface SettingsResponse {
     exploreModelId: string;
     recsProvider: string;
     recsModelId: string;
+    reportsProvider: string;
+    reportsModelId: string;
     chatEffort: AiEffort;
     exploreEffort: AiEffort;
     recsEffort: AiEffort;
+    reportsEffort: AiEffort;
   };
 }
 
@@ -142,6 +147,7 @@ export interface SettingsUpdateRequest {
   aiChatSystemPrompt?: string | null;
   aiOrgSearchDomains?: string[];
   reportingCurrency?: ReportingCurrency;
+  organizationName?: string | null;
   anthropicApiKey?: string;
   // Multi-provider fields
   openaiApiKey?: string;
@@ -153,9 +159,12 @@ export interface SettingsUpdateRequest {
   aiExploreModelId?: string;
   aiRecsProvider?: string;
   aiRecsModelId?: string;
+  aiReportsProvider?: string;
+  aiReportsModelId?: string;
   aiChatEffort?: AiEffort;
   aiExploreEffort?: AiEffort;
   aiRecsEffort?: AiEffort;
+  aiReportsEffort?: AiEffort;
   aiModelLists?: AiModelLists;
 }
 

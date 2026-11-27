@@ -26,6 +26,9 @@ export default async function ReportRunPage({ params }: { params: Promise<{ id: 
         startedAt: run.startedAt?.toISOString() ?? null,
         completedAt: run.completedAt?.toISOString() ?? null,
         warnings: run.warnings,
+        stepCount: run.stepCount,
+        usage: run.usage,
+        cancelRequested: run.cancelRequested,
       }}
       figures={figures.map((figure) => ({
         key: figure.key,

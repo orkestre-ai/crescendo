@@ -4,6 +4,7 @@ import { reportFileName } from '@/lib/reports/filename';
 import { renderReportPdf } from '@/lib/reports/pdf';
 import { attachment } from '@/lib/reports/response';
 import { prismaStore } from '@/lib/reports/store';
+import { getOrCreateSettings } from '@/lib/settings';
 
 /**
  * GET /api/reports/runs/[id]/pdf
@@ -19,11 +20,12 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Report run not found' }, { status: 404 });
     }
     const pdf = await renderReportPdf(id);
+    const { organizationName } = await getOrCreateSettings();
     return new NextResponse(new Uint8Array(pdf), {
       headers: {
         'Content-Type': 'application/pdf',
         'Cache-Control': 'no-store',
-        ...attachment(reportFileName(run, 'pdf')),
+        ...attachment(reportFileName(run, 'pdf', organizationName)),
       },
     });
   } catch (error) {

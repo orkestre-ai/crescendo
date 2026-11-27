@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { errorResponse } from '@/lib/api-helpers';
 import { rootLogger } from '@/lib/logging';
 import { ensureDefaultReportDefinitions } from '@/lib/reports/definitions';
+import { resolveInputDefaults, validateRunInputs } from '@/lib/reports/definitions/inputs';
 import {
   ReportBusyError,
   ReportDefinitionNotFoundError,
@@ -25,32 +26,70 @@ const startSchema = z
   });
 
 /**
+ * GET /api/reports/runs
+ *
+ * Every run, newest first, as the list of past reports shows them.
+ */
+export async function GET() {
+  try {
+    const runs = await prismaStore.listRuns();
+    return NextResponse.json({
+      runs: runs.map((run) => ({
+        id: run.id,
+        title: run.title,
+        definitionKey: run.definitionSnapshot.key,
+        definitionName: run.definitionSnapshot.name,
+        preparedBy: run.preparedBy,
+        status: run.status,
+        statusReason: run.statusReason,
+        stepCount: run.stepCount,
+        startedAt: run.startedAt,
+        completedAt: run.completedAt,
+        createdAt: run.createdAt,
+      })),
+    });
+  } catch (error) {
+    return errorResponse(error, 'Failed to load the reports');
+  }
+}
+
+/**
  * POST /api/reports/runs
  *
  * Start a report. The run continues in the background; follow it with
- * GET /api/reports/runs/[id]/events. Answers 409 while another report runs.
+ * GET /api/reports/runs/[id]/events. Answers 409 while another report runs,
+ * and 400 with an error per field when the inputs do not fit the
+ * definition's form.
  */
 export async function POST(request: NextRequest) {
   try {
     const body = startSchema.parse(await request.json());
 
-    let definitionId = body.definitionId;
-    if (body.definitionKey) {
-      await ensureDefaultReportDefinitions();
-      const definition = await prismaStore.findDefinition({ key: body.definitionKey });
-      if (!definition) {
-        return NextResponse.json(
-          { error: `No report definition with key ${body.definitionKey}` },
-          { status: 404 }
-        );
-      }
-      definitionId = definition.id;
+    if (body.definitionKey) await ensureDefaultReportDefinitions();
+    const definition = await prismaStore.findDefinition(
+      body.definitionKey ? { key: body.definitionKey } : { id: body.definitionId! }
+    );
+    if (!definition) {
+      return NextResponse.json(
+        { error: `No report definition ${body.definitionKey ?? body.definitionId}` },
+        { status: 404 }
+      );
+    }
+
+    // en-CA writes a date as YYYY-MM-DD.
+    const today = new Intl.DateTimeFormat('en-CA').format(new Date());
+    const checked = validateRunInputs(resolveInputDefaults(definition.inputs, today), body.inputs);
+    if (!checked.ok) {
+      return NextResponse.json(
+        { error: 'Some fields need attention.', code: 'INVALID_INPUTS', errors: checked.errors },
+        { status: 400 }
+      );
     }
 
     const { runId } = await startReportRun({
-      definitionId,
-      inputs: body.inputs,
-      preparedBy: body.preparedBy,
+      definitionId: definition.id,
+      inputs: checked.values,
+      preparedBy: body.preparedBy?.trim() || undefined,
     });
     logger.info({ runId, event: 'report.started' }, 'Report run started');
 

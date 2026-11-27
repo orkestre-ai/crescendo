@@ -4,6 +4,7 @@ import { reportFileName } from '@/lib/reports/filename';
 import { renderReportHtml } from '@/lib/reports/render';
 import { renderMode, reportHtmlResponse } from '@/lib/reports/response';
 import { prismaStore } from '@/lib/reports/store';
+import { getOrCreateSettings } from '@/lib/settings';
 
 /**
  * GET /api/reports/runs/[id]/html?mode=screen|print[&download=1]
@@ -21,7 +22,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
     const query = request.nextUrl.searchParams;
     const mode = renderMode(query.get('mode'));
-    const fileName = query.get('download') === '1' ? reportFileName(run, 'html') : undefined;
+    const fileName =
+      query.get('download') === '1'
+        ? reportFileName(run, 'html', (await getOrCreateSettings()).organizationName)
+        : undefined;
     return reportHtmlResponse(await renderReportHtml(id, { mode }), fileName);
   } catch (error) {
     return errorResponse(error, 'Failed to render the report');

@@ -1,7 +1,10 @@
 'use client';
 
-import { AlertTriangle, Download } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { AlertTriangle, Download, Loader2 } from 'lucide-react';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Table,
   TableBody,
@@ -12,13 +15,16 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { describeSource } from '@/lib/reports/ledger-csv';
-import type {
-  FigureSource,
-  RecheckStatus,
-  ReportEventType,
-  ReportRunStatus,
-  ReportWarning,
+import {
+  ACTIVE_STATUSES,
+  type FigureSource,
+  type RecheckStatus,
+  type ReportEventType,
+  type ReportRunStatus,
+  type ReportUsage,
+  type ReportWarning,
 } from '@/lib/reports/types';
+import { RUN_STATUS } from './status';
 
 interface RunSummary {
   id: string;
@@ -29,6 +35,18 @@ interface RunSummary {
   startedAt: string | null;
   completedAt: string | null;
   warnings: ReportWarning[];
+  stepCount: number;
+  usage: ReportUsage | null;
+  cancelRequested: boolean;
+}
+
+/** What the events route says about a run each time it is asked. */
+interface Progress {
+  status: ReportRunStatus;
+  statusReason: string | null;
+  stepCount: number;
+  usage: ReportUsage | null;
+  cancelRequested: boolean;
 }
 
 interface FigureRow {
@@ -57,17 +75,6 @@ interface EventRow {
   createdAt: string;
 }
 
-const STATUS: Record<ReportRunStatus, { label: string; variant: BadgeProps['variant'] }> = {
-  QUEUED: { label: 'Queued', variant: 'secondary' },
-  RUNNING: { label: 'Running', variant: 'info' },
-  RECHECKING: { label: 'Rechecking', variant: 'info' },
-  COMPLETED: { label: 'Completed', variant: 'success' },
-  NEEDS_ATTENTION: { label: 'Needs attention', variant: 'warning' },
-  STOPPED: { label: 'Stopped', variant: 'warning' },
-  CANCELLED: { label: 'Cancelled', variant: 'secondary' },
-  FAILED: { label: 'Failed', variant: 'destructive' },
-};
-
 const RECHECK: Record<RecheckStatus, { label: string; variant: BadgeProps['variant'] }> = {
   matched: { label: 'Matched', variant: 'success' },
   corrected: { label: 'Corrected', variant: 'warning' },
@@ -88,6 +95,23 @@ const INCOMPLETE: Partial<Record<ReportRunStatus, string>> = {
 const when = (iso: string | null) =>
   iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '';
 
+const POLL_MS = 2000;
+
+const tokens = (count: number) => count.toLocaleString();
+
+/** Steps and tokens so far. Tokens, not dollars: there is no price table. */
+function usageLine(steps: number, usage: ReportUsage | null): string {
+  const parts = [`${steps} ${steps === 1 ? 'step' : 'steps'}`];
+  if (usage) {
+    parts.push(
+      `${tokens(usage.inputTokens)} input tokens`,
+      `${tokens(usage.cachedInputTokens)} read from cache`,
+      `${tokens(usage.outputTokens)} output tokens`
+    );
+  }
+  return parts.join(' · ');
+}
+
 // The three files a report can be saved as. Each link is a plain download:
 // the server names the file.
 const DOWNLOADS = [
@@ -98,7 +122,9 @@ const DOWNLOADS = [
 
 /**
  * One report run: its status, the document in a sandboxed frame, and under
- * it the ledger, the queries, the activity log and the warnings.
+ * it the ledger, the queries, the activity log and the warnings. While the
+ * run is in progress the page asks for new activity every two seconds and
+ * shows the steps, tokens and notes so far, with a way to cancel.
  */
 export function ReportRunView({
   run,
@@ -111,8 +137,68 @@ export function ReportRunView({
   queries: QueryRow[];
   events: EventRow[];
 }) {
-  const status = STATUS[run.status];
-  const incomplete = INCOMPLETE[run.status];
+  const router = useRouter();
+  // What polling has learned since the page was rendered.
+  const [progress, setProgress] = useState<Progress | null>(null);
+  const [polled, setPolled] = useState<EventRow[]>([]);
+  const [isCancelling, setIsCancelling] = useState(false);
+  // Changed when the run ends, so the frame loads the finished document.
+  const [frameKey, setFrameKey] = useState(0);
+
+  const live: Progress = progress ?? run;
+  const isActive = ACTIVE_STATUSES.includes(live.status);
+  const lastSeq = events.length > 0 ? events[events.length - 1].seq : 0;
+  const allEvents = [...events, ...polled.filter((event) => event.seq > lastSeq)];
+  const notes = allEvents.filter((event) => event.type === 'note');
+  const seen = useRef(0);
+  seen.current = allEvents.length > 0 ? allEvents[allEvents.length - 1].seq : 0;
+
+  useEffect(() => {
+    if (!isActive) return;
+    let stopped = false;
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/reports/runs/${run.id}/events?after=${seen.current}`);
+        if (!res.ok || stopped) return;
+        const json: { events: EventRow[]; run: Progress } = await res.json();
+        if (json.events.length > 0) {
+          setPolled((prev) => [
+            ...prev,
+            ...json.events.filter((event) => !prev.some((p) => p.seq === event.seq)),
+          ]);
+        }
+        setProgress(json.run);
+        if (!ACTIVE_STATUSES.includes(json.run.status)) {
+          // The run has ended: load its ledger, queries and warnings, and the finished document.
+          setFrameKey((key) => key + 1);
+          router.refresh();
+        }
+      } catch {
+        // A missed poll is made up by the next one.
+      }
+    };
+    const timer = setInterval(poll, POLL_MS);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
+  }, [isActive, run.id, router]);
+
+  async function handleCancel() {
+    if (!window.confirm('Cancel this report? Its queries, ledger and notes so far are kept.')) {
+      return;
+    }
+    setIsCancelling(true);
+    try {
+      await fetch(`/api/reports/runs/${run.id}/cancel`, { method: 'POST' });
+    } catch {
+      setIsCancelling(false);
+    }
+  }
+
+  const status = RUN_STATUS[live.status];
+  const incomplete = INCOMPLETE[live.status];
+  const cancelling = isCancelling || live.cancelRequested;
 
   return (
     <div className="space-y-6">
@@ -152,23 +238,58 @@ export function ReportRunView({
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
           <div>
             <p className="font-medium">{incomplete}</p>
-            {run.statusReason && <p className="text-muted-foreground mt-1">{run.statusReason}</p>}
+            {live.statusReason && <p className="text-muted-foreground mt-1">{live.statusReason}</p>}
           </div>
         </div>
       )}
 
+      {isActive ? (
+        <div className="space-y-3 rounded-lg border p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm">
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              <span className="font-medium tabular-nums">
+                {usageLine(live.stepCount, live.usage)}
+              </span>
+            </div>
+            <Button variant="outline" size="sm" onClick={handleCancel} disabled={cancelling}>
+              {cancelling ? 'Cancelling after this step...' : 'Cancel'}
+            </Button>
+          </div>
+          {notes.length > 0 && (
+            <ol className="max-h-72 space-y-2 overflow-y-auto border-t pt-3 text-sm">
+              {notes.map((note) => (
+                <li key={note.seq} className="flex gap-3">
+                  <span className="text-muted-foreground w-36 shrink-0 text-xs tabular-nums">
+                    {when(note.createdAt)}
+                  </span>
+                  <span className="min-w-0 whitespace-pre-wrap break-words">{note.message}</span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      ) : (
+        live.stepCount > 0 && (
+          <p className="text-muted-foreground text-sm tabular-nums">
+            {usageLine(live.stepCount, live.usage)}
+          </p>
+        )
+      )}
+
       <iframe
+        key={frameKey}
         src={`/api/reports/runs/${run.id}/html?mode=screen`}
         title={run.title}
         sandbox="allow-scripts"
         className="h-[75vh] w-full rounded-lg border bg-background"
       />
 
-      <Tabs defaultValue="ledger">
+      <Tabs defaultValue={ACTIVE_STATUSES.includes(run.status) ? 'activity' : 'ledger'}>
         <TabsList>
           <TabsTrigger value="ledger">Ledger ({figures.length})</TabsTrigger>
           <TabsTrigger value="queries">Queries ({queries.length})</TabsTrigger>
-          <TabsTrigger value="activity">Activity ({events.length})</TabsTrigger>
+          <TabsTrigger value="activity">Activity ({allEvents.length})</TabsTrigger>
           <TabsTrigger value="warnings">Warnings ({run.warnings.length})</TabsTrigger>
         </TabsList>
 
@@ -270,11 +391,11 @@ export function ReportRunView({
         </TabsContent>
 
         <TabsContent value="activity">
-          {events.length === 0 ? (
+          {allEvents.length === 0 ? (
             <p className="text-muted-foreground py-6 text-sm">Nothing has happened yet.</p>
           ) : (
             <ol className="divide-y text-sm">
-              {events.map((event) => (
+              {allEvents.map((event) => (
                 <li key={event.seq} className="flex gap-3 py-2">
                   <span className="text-muted-foreground w-36 shrink-0 text-xs tabular-nums">
                     {when(event.createdAt)}

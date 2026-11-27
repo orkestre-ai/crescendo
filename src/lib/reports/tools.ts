@@ -1,7 +1,7 @@
 import { tool, type Tool, type ToolSet } from 'ai';
 import { z } from 'zod';
 import { redactEmails } from '@/lib/ai-tools/redact';
-import { runBlocks } from './blocks/resolve';
+import { EMAILS_REMOVED, runBlocks, runLedger } from './blocks/resolve';
 import type { BlockDef, BlockInstance, Ledger } from './blocks/types';
 import { validateBlockData } from './blocks/validate';
 import {
@@ -318,6 +318,11 @@ export function createReportTools(
             `"${key}" cannot be a figure key. Use lower-case letters, digits and underscores, starting with a letter.`
           );
         }
+        if (key === EMAILS_REMOVED) {
+          throw new LedgerError(
+            `Crescendo keeps "${EMAILS_REMOVED}" itself: the email addresses it removed from query results. Use {{fig:${EMAILS_REMOVED}}} in the wording; do not record it.`
+          );
+        }
         if (unit === 'text' && source.kind !== 'cell' && source.kind !== 'stated') {
           throw new LedgerError('A text figure comes from a cell or is stated.');
         }
@@ -470,11 +475,16 @@ export function createReportTools(
 
   // Blocks: the document, in page order
   const readBlocks = async () => runBlocks((await store.getRun(runId))?.blocks ?? []);
-  const readLedger = async (): Promise<Ledger> => ({
-    figures: await store.listFigures(runId),
-    datasets: await store.listDatasets(runId),
-    currencyCode: opts.currencyCode,
-  });
+  const readLedger = async (): Promise<Ledger> =>
+    runLedger(
+      {
+        id: runId,
+        redactedEmailCount: (await store.getRun(runId))?.redactedEmailCount ?? 0,
+        currencyCode: opts.currencyCode,
+      },
+      await store.listFigures(runId),
+      await store.listDatasets(runId)
+    );
   const usableBlocks = async () =>
     (await store.listBlockDefs()).filter((def) => def.isCurrent && def.status !== 'disabled');
 

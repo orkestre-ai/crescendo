@@ -22,6 +22,7 @@ export const smokeTest: ReportDefinitionSeed = {
 3. Write one note naming the 7 days and the four figure keys.
 4. Call list_blocks, then add two blocks: a stat_tiles block with one tile for each of the four figures, and under it a prose block with one sentence that uses {{fig:sessions_7d}} and {{fig:revenue_7d}}.
 5. Call finish_report.`,
+  inputs: [],
   enabledTools: ['ga4_report'],
   maxSteps: 20,
   maxMinutes: 10,

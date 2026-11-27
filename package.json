@@ -30,7 +30,7 @@
     "setup": "bash setup.sh",
     "test:scripts": "npx tsx --test src/scripts/__tests__/*.test.ts",
     "test:ai-tools": "npx tsx --test --test-concurrency=1 src/lib/ai-tools/__tests__/*.test.ts src/lib/ai/__tests__/*.test.ts src/lib/jobs/helpers/__tests__/*.test.ts",
-    "test:reports": "npx tsx --test src/lib/ai-tools/__tests__/ga4-report.test.ts src/lib/ai-tools/__tests__/ga4-funnel.test.ts src/lib/reports/__tests__/formula.test.ts src/lib/reports/__tests__/ledger.test.ts src/lib/reports/__tests__/context-pruning.test.ts src/lib/reports/__tests__/recheck.test.ts src/lib/reports/__tests__/runner.test.ts src/lib/reports/__tests__/blocks-render.test.ts src/lib/reports/__tests__/blocks-safety.test.ts src/lib/reports/__tests__/blocks-builtin.test.ts src/lib/reports/__tests__/prose-lint.test.ts src/lib/reports/__tests__/pdf.test.ts src/lib/reports/__tests__/ledger-csv.test.ts",
+    "test:reports": "npx tsx --test src/lib/ai-tools/__tests__/ga4-report.test.ts src/lib/ai-tools/__tests__/ga4-funnel.test.ts src/lib/reports/__tests__/formula.test.ts src/lib/reports/__tests__/ledger.test.ts src/lib/reports/__tests__/context-pruning.test.ts src/lib/reports/__tests__/recheck.test.ts src/lib/reports/__tests__/runner.test.ts src/lib/reports/__tests__/blocks-render.test.ts src/lib/reports/__tests__/blocks-safety.test.ts src/lib/reports/__tests__/blocks-builtin.test.ts src/lib/reports/__tests__/prose-lint.test.ts src/lib/reports/__tests__/pdf.test.ts src/lib/reports/__tests__/ledger-csv.test.ts src/lib/reports/__tests__/definitions.test.ts",
     "docker:update": "docker compose pull && docker compose up -d && echo '✅ Docker images updated and containers restarted'"
   },
   "keywords": [],

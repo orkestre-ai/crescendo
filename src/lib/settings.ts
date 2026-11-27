@@ -274,6 +274,7 @@ export async function getSettingsResponse(): Promise<SettingsResponse> {
     },
     reporting: {
       currency: (settings.reportingCurrency as ReportingCurrency) || 'CAD',
+      organizationName: settings.organizationName,
     },
     anthropic: {
       isConfigured: isAnthropicConfigured,
@@ -304,9 +305,12 @@ export async function getSettingsResponse(): Promise<SettingsResponse> {
       exploreModelId: settings.aiExploreModelId,
       recsProvider: settings.aiRecsProvider,
       recsModelId: settings.aiRecsModelId,
+      reportsProvider: settings.aiReportsProvider,
+      reportsModelId: settings.aiReportsModelId,
       chatEffort: settings.aiChatEffort as AiEffort,
       exploreEffort: settings.aiExploreEffort as AiEffort,
       recsEffort: settings.aiRecsEffort as AiEffort,
+      reportsEffort: settings.aiReportsEffort as AiEffort,
     },
   };
 }
@@ -368,6 +372,8 @@ export async function updateSettings(data: SettingsUpdateRequest): Promise<AppSe
   if (data.aiChatSystemPrompt !== undefined) updateData.aiChatSystemPrompt = data.aiChatSystemPrompt;
   if (data.aiOrgSearchDomains !== undefined) updateData.aiOrgSearchDomains = data.aiOrgSearchDomains;
   if (data.reportingCurrency !== undefined) updateData.reportingCurrency = data.reportingCurrency;
+  if (data.organizationName !== undefined)
+    updateData.organizationName = data.organizationName?.trim() || null;
   if (data.anthropicApiKey !== undefined) {
     updateData.anthropicApiKeyEncrypted = data.anthropicApiKey
       ? encrypt(data.anthropicApiKey)
@@ -388,6 +394,9 @@ export async function updateSettings(data: SettingsUpdateRequest): Promise<AppSe
   if (data.aiExploreModelId !== undefined) updateData.aiExploreModelId = data.aiExploreModelId;
   if (data.aiRecsProvider !== undefined) updateData.aiRecsProvider = data.aiRecsProvider;
   if (data.aiRecsModelId !== undefined) updateData.aiRecsModelId = data.aiRecsModelId;
+  if (data.aiReportsProvider !== undefined) updateData.aiReportsProvider = data.aiReportsProvider;
+  if (data.aiReportsModelId !== undefined) updateData.aiReportsModelId = data.aiReportsModelId;
+  if (data.aiReportsEffort !== undefined) updateData.aiReportsEffort = data.aiReportsEffort;
   if (data.aiChatEffort !== undefined) updateData.aiChatEffort = data.aiChatEffort;
   if (data.aiExploreEffort !== undefined) updateData.aiExploreEffort = data.aiExploreEffort;
   if (data.aiRecsEffort !== undefined) updateData.aiRecsEffort = data.aiRecsEffort;

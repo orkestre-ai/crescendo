@@ -60,6 +60,8 @@ async function main(): Promise<number> {
 
   // Dynamic imports — must run after dotenv.config() above.
   const { ensureDefaultReportDefinitions } = await import('../lib/reports/definitions');
+  const { resolveInputDefaults, validateRunInputs } =
+    await import('../lib/reports/definitions/inputs');
   const { prismaStore: store } = await import('../lib/reports/store');
   const { runReport, startReportRun } = await import('../lib/reports/runner');
 
@@ -68,7 +70,11 @@ async function main(): Promise<number> {
     await ensureDefaultReportDefinitions();
     const definition = await store.findDefinition({ key: definitionKey });
     if (!definition) throw new Error(`No report definition with key "${definitionKey}".`);
-    start = { definitionId: definition.id, inputs };
+    // The same check the start form gets. en-CA writes a date as YYYY-MM-DD.
+    const today = new Intl.DateTimeFormat('en-CA').format(new Date());
+    const checked = validateRunInputs(resolveInputDefaults(definition.inputs, today), inputs);
+    if (!checked.ok) throw new Error(Object.values(checked.errors).join('\n'));
+    start = { definitionId: definition.id, inputs: checked.values };
   } else {
     start = {
       definition: {

@@ -5,6 +5,7 @@ import { AiModelsPanel } from './ai-models-panel';
 import { AiRecommendationsPanel } from './ai-recommendations-panel';
 import { AiChatToolsPanel } from './ai-chat-tools-panel';
 import { ExplorationsPanel } from './explorations-panel';
+import { ReportsPanel } from './reports-panel';
 import type { SettingsResponse } from '@/types/settings';
 
 interface AiConfigTabsProps {
@@ -27,10 +28,11 @@ export function AiConfigTabs({
       onValueChange={onTabChange}
       className="space-y-6"
     >
-      <TabsList className="grid w-full grid-cols-4">
+      <TabsList className="grid w-full grid-cols-5">
         <TabsTrigger value="models">Models</TabsTrigger>
         <TabsTrigger value="recommendations">Recommendations</TabsTrigger>
         <TabsTrigger value="explorations">Explorations</TabsTrigger>
+        <TabsTrigger value="reports">Reports</TabsTrigger>
         <TabsTrigger value="chat-tools">Chat &amp; Tools</TabsTrigger>
       </TabsList>
 
@@ -44,6 +46,10 @@ export function AiConfigTabs({
 
       <TabsContent value="explorations">
         <ExplorationsPanel settings={settings} onSettingsUpdate={onSettingsUpdate} />
+      </TabsContent>
+
+      <TabsContent value="reports">
+        <ReportsPanel />
       </TabsContent>
 
       <TabsContent value="chat-tools">
