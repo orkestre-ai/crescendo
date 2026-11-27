@@ -54,6 +54,7 @@ const updateSettingsSchema = z.object({
   aiChatSystemPrompt: z.string().nullable().optional(),
   aiOrgSearchDomains: z.array(z.string().regex(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,}$/, 'Invalid domain format')).max(5).optional(),
   reportingCurrency: z.enum(['USD', 'CAD', 'GBP', 'EUR', 'AUD']).optional(),
+  organizationName: z.string().max(200).nullable().optional(),
   anthropicApiKey: z.string().optional(),
   // Multi-provider fields (Phase 8)
   openaiApiKey: z.string().optional(),
@@ -65,9 +66,12 @@ const updateSettingsSchema = z.object({
   aiExploreModelId: z.string().optional(),
   aiRecsProvider: z.enum(['anthropic', 'openai', 'google', 'ollama']).optional(),
   aiRecsModelId: z.string().optional(),
+  aiReportsProvider: z.enum(['anthropic', 'openai', 'google', 'ollama']).optional(),
+  aiReportsModelId: z.string().optional(),
   aiChatEffort: z.enum(EFFORT_LEVELS).optional(),
   aiExploreEffort: z.enum(EFFORT_LEVELS).optional(),
   aiRecsEffort: z.enum(EFFORT_LEVELS).optional(),
+  aiReportsEffort: z.enum(EFFORT_LEVELS).optional(),
   aiModelLists: z.object({
     anthropic: z.array(z.object({ id: z.string(), label: z.string(), isDefault: z.boolean() })),
     openai: z.array(z.object({ id: z.string(), label: z.string(), isDefault: z.boolean() })),

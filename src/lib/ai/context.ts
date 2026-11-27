@@ -29,7 +29,7 @@ export function isCompactionPart(part: { type: string; providerMetadata?: unknow
 
 // Rough token count. JSON tool results run denser than prose, so count three
 // characters per token rather than four.
-function estimateTokens(value: unknown): number {
+export function estimateTokens(value: unknown): number {
   return Math.ceil(JSON.stringify(value).length / 3);
 }
 

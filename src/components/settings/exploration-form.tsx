@@ -64,7 +64,7 @@ export function ExplorationForm({
       prompt: '',
       icon: 'BarChart3',
       enabled: true,
-      enabledTools: AVAILABLE_TOOLS.filter((t) => !t.hidden).map((t) => t.key), // All visible tools selected by default for new
+      enabledTools: AVAILABLE_TOOLS.filter((t) => !t.hidden && !t.optIn).map((t) => t.key), // All visible tools selected by default for new, except opt-in ones
     }
   );
   const [isSaving, setIsSaving] = useState(false);

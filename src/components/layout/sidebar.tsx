@@ -4,7 +4,16 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { BarChart3, Brain, Settings, HelpCircle, ChevronLeft, Moon, Sun } from 'lucide-react';
+import {
+  BarChart3,
+  Brain,
+  FileText,
+  Settings,
+  HelpCircle,
+  ChevronLeft,
+  Moon,
+  Sun,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useTheme } from 'next-themes';
@@ -26,6 +35,11 @@ const navigationItems = [
     title: 'Settings',
     href: '/settings',
     icon: Settings,
+  },
+  {
+    title: 'Reports',
+    href: '/reports',
+    icon: FileText,
   },
   {
     title: 'AI Config',

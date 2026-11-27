@@ -3,7 +3,7 @@ import { streamText, type UIMessage, convertToModelMessages, stepCountIs } from 
 import { prisma } from '@/lib/db';
 import { getAiSettings, getOrCreateSettings } from '@/lib/settings';
 import { getProfileById } from '@/config/ai-profiles';
-import { getToolInstructions, allTools } from '@/lib/ai/tools';
+import { getToolInstructions, getTools } from '@/lib/ai/tools';
 import {
   contextFullStop,
   getGenerationOptions,
@@ -13,6 +13,7 @@ import {
 import { getContextCap, isCompactionPart, supportsCompaction, trimToContext } from '@/lib/ai/context';
 import { withKeepAlive } from '@/lib/ai/keep-alive';
 import { DEFAULT_CHAT_SYSTEM_PROMPT } from '@/config/ai-defaults';
+import { DEFAULT_TOOL_KEYS } from '@/config/exploration-constants';
 import { createChatLogger } from '@/lib/logging/journeys';
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -101,7 +102,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       metrics30d
         ? `\n\n## Last 30 Days\n- Page Views: ${metrics30d.pageViews}\n- Conversions: ${metrics30d.conversions}\n- Revenue: $${metrics30d.revenue.toFixed(2)}\n- Conversion Rate: ${(metrics30d.conversionRate * 100).toFixed(2)}%\n- Bounce Rate: ${(metrics30d.bounceRate * 100).toFixed(2)}%`
         : '',
-      `\n\n## Available Tools\n${getToolInstructions()}`,
+      `\n\n## Available Tools\n${getToolInstructions(DEFAULT_TOOL_KEYS)}`,
       `\n\n## Guardrails\n- You are an expert CRO consultant for nonprofit fundraising pages.\n- Only answer questions related to this page, its performance, optimization, fundraising, and digital marketing.\n- If asked about unrelated topics (weather, sports, coding, etc.), politely decline and redirect to page optimization.\n- Never fabricate data — use the tools to look up real data, or clearly state when you don't have the information.\n- Always ground content suggestions in the organization's actual messaging (use org_search tool when needed).`,
     ].join('');
 
@@ -147,7 +148,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       maxOutputTokens: aiSettings.chatMaxTokens,
       system: systemPrompt,
       messages: modelMessages,
-      tools: allTools,
+      tools: getTools(DEFAULT_TOOL_KEYS),
       stopWhen: [stepCountIs(10), contextFullStop(config, aiSettings.chatMaxTokens)],
       onFinish: async ({ steps, usage }) => {
         try {

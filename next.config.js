@@ -70,6 +70,12 @@ const nextConfig = {
           { key: 'X-Frame-Options', value: 'DENY' },
         ],
       },
+      {
+        // A report document is shown in a sandboxed frame on the app's own
+        // pages. A later rule overrides an earlier one for the same header.
+        source: '/api/reports/:path*/html',
+        headers: [{ key: 'X-Frame-Options', value: 'SAMEORIGIN' }],
+      },
     ];
   },
 };

@@ -1,5 +1,4 @@
-import { BetaAnalyticsDataClient } from '@google-analytics/data';
-import { env } from '@/config/env';
+import { GA4_NOT_CONFIGURED, getGa4Clients } from '@/lib/ga4-client';
 import { createAiToolLogger } from '@/lib/logging/journeys';
 import type { ToolSkill } from './types';
 
@@ -65,8 +64,8 @@ Results are capped at 100 rows. If you need more granularity, narrow the date ra
     };
 
     try {
-      const credentials = env.GA4_SERVICE_ACCOUNT_KEY;
-      const client = new BetaAnalyticsDataClient({ credentials });
+      const clients = await getGa4Clients();
+      if (!clients) throw new Error(GA4_NOT_CONFIGURED);
 
       const dimensionFilter = pagePathFilter
         ? {
@@ -77,8 +76,8 @@ Results are capped at 100 rows. If you need more granularity, narrow the date ra
           }
         : undefined;
 
-      const [response] = await client.runReport({
-        property: env.GA4_PROPERTY_ID,
+      const [response] = await clients.data.runReport({
+        property: clients.propertyId,
         dateRanges: [{ startDate, endDate }],
         dimensions: dimensions.map((name) => ({ name })),
         metrics: metrics.map((name) => ({ name })),

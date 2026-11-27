@@ -20,4 +20,4 @@ export interface ProviderConfig {
   baseUrl?: string;
 }
 
-export type AiSurface = 'chat' | 'explore' | 'recs';
+export type AiSurface = 'chat' | 'explore' | 'recs' | 'reports';

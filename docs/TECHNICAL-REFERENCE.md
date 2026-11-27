@@ -1094,6 +1094,8 @@ Chat and explore limits:
 | Tool Key | Label | Description |
 |----------|-------|-------------|
 | `ga4_query` | GA4 Query | Query Google Analytics data |
+| `ga4_report` | GA4 Report | Full GA4 reports: filters, sorting, two date ranges, up to 1,000 rows (opt-in) |
+| `ga4_funnel` | GA4 Funnel | Drop-off between steps in a GA4 funnel (opt-in) |
 | `org_search` | Org Search | Search organization context |
 | `page_lookup` | Page Lookup | Find pages by EN page number, with EN gift totals |
 | `page_performance` | Page Performance | Get page metric trends |
