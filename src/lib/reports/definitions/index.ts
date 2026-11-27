@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import type { ReportInputField } from './inputs';
 import { smokeTest } from './smoke-test';
+import { yearEndDaily } from './year-end-daily';
 import { yearEndGivingReview } from './year-end-giving-review';
 
 export interface ReportDefinitionSeed {
@@ -17,9 +18,18 @@ export interface ReportDefinitionSeed {
   maxMinutes: number;
   /** False hides it from the list of reports a person can start. */
   enabled: boolean;
+  /**
+   * "HH:MM" in America/Toronto to run it once a day. Like `enabled`, it is
+   * set when the built-in is first seeded and is the person's to change after.
+   */
+  scheduleDailyAt?: string;
 }
 
-export const BUILTIN_REPORT_DEFINITIONS: ReportDefinitionSeed[] = [yearEndGivingReview, smokeTest];
+export const BUILTIN_REPORT_DEFINITIONS: ReportDefinitionSeed[] = [
+  yearEndGivingReview,
+  yearEndDaily,
+  smokeTest,
+];
 
 /** The parts of a definition a person edits, and the code keeps current until they do. */
 export const DEFINITION_CONTENT = [
@@ -50,7 +60,8 @@ const stored = (value: unknown) => JSON.parse(JSON.stringify(value));
 /**
  * What to write so the stored built-ins match the code. A built-in nobody
  * has edited takes the code's current content; one a person has edited keeps
- * theirs. Whether it is enabled is the person's choice and is never changed.
+ * theirs. Whether it is enabled, and its daily time, are the person's choice
+ * and are never changed.
  */
 export function builtinDefinitionUpdates(
   seeds: ReportDefinitionSeed[],

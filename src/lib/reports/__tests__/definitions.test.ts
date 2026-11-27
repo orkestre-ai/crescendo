@@ -395,6 +395,50 @@ const row = (from: ReportDefinitionSeed, over: Partial<StoredBuiltin> = {}): Sto
   ...over,
 });
 
+test('daily year-end report: Engaging Networks money and GA4 traffic, five queries, scheduled at 07:00', () => {
+  const index = BUILTIN_REPORT_DEFINITIONS.findIndex((d) => d.key === 'year-end-daily');
+  assert.equal(index, 1);
+  const { prompt, enabledTools, inputs, scheduleDailyAt, enabled, maxSteps } =
+    BUILTIN_REPORT_DEFINITIONS[index];
+  assert.deepEqual(enabledTools, ['en_fundraising', 'ga4_report']);
+  assert.equal(scheduleDailyAt, '07:00');
+  assert.equal(enabled, true);
+  assert.ok(maxSteps <= 60);
+  assert.deepEqual(
+    inputs.map((field) => [field.key, field.required, field.default]),
+    [
+      ['campaignStart', true, '{{year}}-11-15'],
+      ['campaignEnd', true, '{{year}}-12-31'],
+      ['givingTuesday', false, undefined],
+      ['givingTuesdayLastYear', false, undefined],
+    ]
+  );
+  // The schedule starts it with nothing typed in: the defaults alone must pass.
+  const filled = validateRunInputs(resolveInputDefaults(inputs, '2026-12-01'), {});
+  assert.ok(filled.ok, JSON.stringify(filled));
+
+  for (const part of [
+    '364 days earlier',
+    'missingDays',
+    'nthDay',
+    'projection',
+    'existing donors',
+    'no dimensions, metrics sessions',
+    'Run these five together',
+  ]) {
+    assert.ok(prompt.includes(part), `the prompt has lost "${part}"`);
+  }
+  for (const block of [
+    'report_header',
+    'stat_tiles',
+    'line_chart',
+    'data_table',
+    'priority_cards',
+  ]) {
+    assert.ok(prompt.includes(block), `the prompt does not place ${block}`);
+  }
+});
+
 test('builtinDefinitionUpdates: a built-in nobody edited takes the code version', () => {
   const current = seed();
   const stale = row(current, { prompt: 'An older prompt', maxSteps: 10 });
@@ -427,6 +471,16 @@ test('builtinDefinitionUpdates: nothing is written when the row already matches'
     inputs: [{ key: 'campaign', label: 'Campaign', type: 'text', required: true, help: undefined }],
   });
   assert.deepEqual(builtinDefinitionUpdates([withUndefined], [reordered]), []);
+});
+
+test('builtinDefinitionUpdates: the daily time of a built-in is never changed', () => {
+  const current = seed({ scheduleDailyAt: '07:00' });
+  // A person cleared it: the row has null, and an unedited prompt still updates.
+  const updates = builtinDefinitionUpdates(
+    [current],
+    [{ ...row(current, { prompt: 'Old' }), scheduleDailyAt: null } as StoredBuiltin]
+  );
+  assert.deepEqual(updates, [{ id: 'id-smoke', data: { prompt: 'The current prompt' } }]);
 });
 
 test('builtinDefinitionUpdates: whether a built-in is enabled is never changed', () => {
@@ -465,6 +519,18 @@ test('definition schemas: a new definition takes the usual guards, a change touc
   assert.ok(refused({ ...created, enabledTools: ['ga4_query'] }));
   assert.ok(refused({ ...created, maxSteps: 0 }));
   assert.ok(refused({ ...created, prompt: '' }));
+
+  // A daily time is HH:MM; null clears it, and changing only it is allowed.
+  assert.equal(
+    definitionCreateSchema.parse({ ...created, scheduleDailyAt: '07:00' }).scheduleDailyAt,
+    '07:00'
+  );
+  assert.deepEqual(definitionUpdateSchema.parse({ scheduleDailyAt: null }), {
+    scheduleDailyAt: null,
+  });
+  for (const time of ['7:00', '24:00', '07:60', 'seven']) {
+    assert.ok(refused({ ...created, scheduleDailyAt: time }), time);
+  }
 });
 
 test('definitionKey: a name becomes a key', () => {
@@ -484,6 +550,7 @@ test('reportFileName: the organisation in Settings comes first, the title area s
     statusReason: null,
     title: 'Test',
     preparedBy: null,
+    trigger: 'manual' as const,
     inputs: {},
     blocks: [
       {

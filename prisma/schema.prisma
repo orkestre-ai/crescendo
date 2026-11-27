@@ -625,6 +625,7 @@ model ReportDefinition {
   enabled      Boolean  @default(true)
   sortOrder    Int      @default(0)
   editedAt     DateTime?                 // Set when a person edits it; a built-in is then no longer updated from code
+  scheduleDailyAt String?                // "HH:MM" in America/Toronto: started once a day after this time. Null: not scheduled
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -644,6 +645,7 @@ model ReportRun {
   statusReason       String?           @db.Text
   title              String
   preparedBy         String?
+  trigger            String            @default("manual") // 'manual' or 'schedule'
   inputs             Json
   blocks             Json              @default("[]")
   warnings           Json              @default("[]")

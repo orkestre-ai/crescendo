@@ -17,6 +17,7 @@ import {
   ACTIVE_STATUSES,
   type DefinitionSnapshot,
   type ReportRunStatus,
+  type ReportTrigger,
   type ReportUsage,
 } from './types';
 
@@ -155,6 +156,7 @@ export async function startReportRun(
     definition?: DefinitionSnapshot;
     inputs: Record<string, string>;
     preparedBy?: string;
+    trigger?: ReportTrigger;
   },
   deps: { store?: ReportStore } = {}
 ): Promise<{ runId: string }> {
@@ -186,6 +188,7 @@ export async function startReportRun(
     title: snapshot.name,
     preparedBy: args.preparedBy ?? null,
     inputs: args.inputs,
+    ...(args.trigger && { trigger: args.trigger }),
   });
   await store.appendEvent(run.id, 'status', 'Queued');
   return { runId: run.id };

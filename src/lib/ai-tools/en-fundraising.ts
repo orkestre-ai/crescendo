@@ -11,7 +11,7 @@ import type { ToolSkill } from './types';
  * recheck and blocks read it the same way. It never calls Engaging Networks.
  */
 
-export const EN_DIMENSIONS = ['date', 'page', 'dateRange'] as const;
+export const EN_DIMENSIONS = ['date', 'nthDay', 'page', 'dateRange'] as const;
 export const EN_METRICS = [
   'totalAmount',
   'donationCount',
@@ -67,6 +67,10 @@ export const EN_FUNDRAISING_MAX_LIMIT = 5000;
 
 const AMOUNTS = new Set<EnMetric>(['totalAmount', 'singleAmount', 'recurringAmount']);
 const isoDay = (date: Date) => date.toISOString().slice(0, 10);
+
+// Days since the start of the range, four digits as GA4 writes nthDay: "0000".
+const nthDay = (date: string, start: string) =>
+  String(Math.round((Date.parse(date) - Date.parse(start)) / 86_400_000)).padStart(4, '0');
 
 function where(startDate: string, endDate: string, enPageIds?: string[]) {
   return {
@@ -139,6 +143,8 @@ export async function runEnFundraising(
     dimensions.push('dateRange');
   const metrics = input.metrics?.length ? [...new Set(input.metrics)] : [...EN_METRICS];
   const byDate = dimensions.includes('date');
+  const byNthDay = dimensions.includes('nthDay');
+  const byDay = byDate || byNthDay;
   const byPage = dimensions.includes('page');
   const pageIds = input.pageIds?.length ? input.pageIds : undefined;
 
@@ -174,20 +180,21 @@ export async function runEnFundraising(
       const values: Record<string, string> = {};
       // GA4 writes a day as YYYYMMDD; so does this, so the two join on "date".
       if (byDate) values.date = date.replaceAll('-', '');
+      if (byNthDay) values.nthDay = nthDay(date, range.startDate);
       if (byPage && page) Object.assign(values, { pageId: page.enPageId, pageName: page.pageName });
       if (dimensions.includes('dateRange')) values.dateRange = rangeName;
       const key = `${order}\u0000${JSON.stringify(values)}`;
       let found = groups.get(key);
       if (!found) {
         const sums = Object.fromEntries(EN_METRICS.map((m) => [m, 0])) as Record<EnMetric, number>;
-        found = { order, date: byDate ? date : '', values, sums };
+        found = { order, date: byDay ? date : '', values, sums };
         groups.set(key, found);
       }
       return found;
     };
 
     if (!byPage) {
-      if (byDate) [...fetchedDates].forEach((date) => group(date));
+      if (byDay) [...fetchedDates].forEach((date) => group(date));
       else group('');
     }
     for (const row of giving) {
@@ -239,7 +246,7 @@ export const enFundraisingInputSchema: z.ZodType<EnFundraisingInput> = z.object(
     .array(z.enum(EN_DIMENSIONS))
     .optional()
     .describe(
-      '"date" (one row per day), "page" (pageId and pageName), "dateRange". None: one total row'
+      '"date" (one row per day, YYYYMMDD), "nthDay" (the day\'s place in its range, "0000" up), "page" (pageId and pageName), "dateRange". None: one total row'
     ),
   metrics: z.array(z.enum(EN_METRICS)).optional().describe('Default: all six'),
   pageIds: z
@@ -268,7 +275,7 @@ export const enFundraisingTool: ToolSkill = {
 
 Metrics: totalAmount and donationCount are every gift; singleAmount and singleCount are one-time gifts; recurringAmount and recurringCount are monthly gifts. The monthly figures include every monthly charge in the period, existing donors' as well as new sign-ups, so say so when you report them. Amounts are in the currency named in "currency". Amounts and counts add up across days and pages.
 
-Dates must be absolute (YYYY-MM-DD). Give up to four date ranges; more than one adds a "dateRange" column, named from each range's name or date_range_0, date_range_1 and so on. The "date" column is written YYYYMMDD, as in GA4, so a dataset can join this query to a ga4_report query on "date". The "page" dimension adds "pageId" (the Engaging Networks page id) and "pageName"; pages closed since are included.
+Dates must be absolute (YYYY-MM-DD). Give up to four date ranges; more than one adds a "dateRange" column, named from each range's name or date_range_0, date_range_1 and so on. The "date" column is written YYYYMMDD, as in GA4, so a dataset can join this query to a ga4_report query on "date". The "nthDay" dimension is the day's place in its own range, from "0000", as in GA4: with two ranges of the same length it lines this year's days up with last year's, so a dataset can join the two on "nthDay". The "page" dimension adds "pageId" (the Engaging Networks page id) and "pageName"; pages closed since are included.
 
 Without the page dimension every stored day has a row, with zeros when nothing came in. With it, only pages with gifts have rows. Rows come sorted by date range, then date, then amount, largest first. When "truncated" is true the list is cut off at "limit".
 

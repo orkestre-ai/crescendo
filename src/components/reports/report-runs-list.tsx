@@ -22,6 +22,7 @@ import { RUN_STATUS } from './status';
 interface RunRow {
   id: string;
   title: string;
+  definitionKey: string;
   definitionName: string;
   preparedBy: string | null;
   status: ReportRunStatus;
@@ -32,6 +33,9 @@ interface RunRow {
 
 const when = (iso: string | null) =>
   iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '';
+
+// The built-in report that runs each morning; its latest run is shown first.
+const DAILY_KEY = 'year-end-daily';
 
 /** How long a run took, or has taken so far: "42 min", "1 h 5 min". */
 function duration(run: RunRow): string {
@@ -47,6 +51,7 @@ export function ReportRunsList() {
   const router = useRouter();
   const [runs, setRuns] = useState<RunRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const daily = runs?.find((run) => run.definitionKey === DAILY_KEY);
 
   const fetchRuns = useCallback(async () => {
     try {
@@ -104,6 +109,25 @@ export function ReportRunsList() {
 
       {error && (
         <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
+      )}
+
+      {daily && (
+        <Link
+          href={`/reports/${daily.id}`}
+          className="flex items-center justify-between gap-3 rounded-lg border p-4 hover:bg-muted/50"
+        >
+          <div>
+            <p className="text-sm text-muted-foreground">Latest {daily.definitionName}</p>
+            <p className="font-medium">
+              {new Date(daily.startedAt ?? daily.createdAt).toLocaleDateString(undefined, {
+                dateStyle: 'full',
+              })}
+            </p>
+          </div>
+          <Badge variant={RUN_STATUS[daily.status].variant} size="sm">
+            {RUN_STATUS[daily.status].label}
+          </Badge>
+        </Link>
       )}
 
       {runs === null ? (

@@ -5,6 +5,8 @@ import { jobProcessor } from './jobs';
 import { runCleanup } from './cleanup';
 import { collectEnDaily, torontoDate } from './en-daily';
 import { prisma } from './db';
+import { ensureDefaultReportDefinitions } from './reports/definitions';
+import { startScheduledRuns } from './reports/schedule';
 
 let initialized = false;
 
@@ -96,6 +98,20 @@ export function initScheduler(): void {
     { timezone: 'America/Toronto' }
   );
 
+  // Every 10 minutes: start report definitions whose daily time has passed
+  // in Toronto. A busy runner leaves them due for the next tick. Seeding
+  // first means a new built-in is scheduled without anyone opening Reports.
+  cron.schedule('*/10 * * * *', async () => {
+    try {
+      await ensureDefaultReportDefinitions();
+      await startScheduledRuns();
+    } catch (error) {
+      schedulerLogger.reportScheduleError(error as Error);
+    }
+  });
+
   initialized = true;
-  schedulerLogger.initialized('hourly collection, weekly cleanup, daily EN giving');
+  schedulerLogger.initialized(
+    'hourly collection, weekly cleanup, daily EN giving, scheduled reports'
+  );
 }
