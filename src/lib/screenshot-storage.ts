@@ -2,7 +2,7 @@ import { writeFile, unlink, mkdir } from 'fs/promises';
 import path from 'path';
 import { rootLogger } from './logging';
 
-const SCREENSHOT_DIR = process.env.SCREENSHOT_DIR
+export const SCREENSHOT_DIR = process.env.SCREENSHOT_DIR
   ? path.resolve(process.env.SCREENSHOT_DIR)
   : path.join(process.cwd(), 'public', 'screenshots');
 
