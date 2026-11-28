@@ -91,6 +91,45 @@ test('runEnFundraising: no dimensions gives one total row, in string cells', asy
   assert.equal(result.currency, 'CAD');
 });
 
+test('runEnFundraising: monthly transactions with no amount are left out of every count', async () => {
+  const unpaid = (date: string, enPageId: string, count: number): EnGivingRow => ({
+    ...day(date, enPageId, 0, count),
+    singleCount: 0,
+    recurringCount: count,
+  });
+  const rows = [
+    ...STORED,
+    // A page of imported sustainers: monthly charges with no money on them.
+    unpaid('2025-12-01', '300', 40),
+    // One-time gifts on the same day as unpaid monthly ones.
+    {
+      ...unpaid('2025-12-02', '400', 5),
+      totalAmount: 50,
+      singleAmount: 50,
+      singleCount: 2,
+      donationCount: 7,
+    },
+  ];
+  const total = await runEnFundraising(
+    { dateRanges: [DEC], metrics: ['totalAmount', 'donationCount', 'recurringCount'] },
+    memoryStore(rows).store
+  );
+  assert.deepEqual(total.rows, [{ totalAmount: '670.3', donationCount: '9', recurringCount: '2' }]);
+
+  const byPage = await runEnFundraising(
+    { dateRanges: [DEC], dimensions: ['page'], metrics: ['donationCount'] },
+    memoryStore(rows).store
+  );
+  assert.deepEqual(
+    byPage.rows.map((row) => [row.pageId, row.donationCount]),
+    [
+      ['200', '4'],
+      ['100', '3'],
+      ['400', '2'],
+    ]
+  );
+});
+
 test('runEnFundraising: by date, every fetched day has a row and unfetched days are listed', async () => {
   const result = await runEnFundraising(
     {

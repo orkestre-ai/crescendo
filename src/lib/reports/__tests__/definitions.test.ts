@@ -422,7 +422,7 @@ test('daily year-end report: Engaging Networks money and GA4 traffic, five queri
     'missingDays',
     'nthDay',
     'projection',
-    'existing donors',
+    'monthly on donation pages',
     'no dimensions, metrics sessions',
     'Run these five together',
   ]) {
