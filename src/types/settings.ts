@@ -2,6 +2,7 @@ import type { ConnectionStatus, RefreshSchedule } from '@prisma/client';
 import type { ReportingCurrency } from '@/types/fundraising';
 import type { ContextProfile } from '@/config/ai-profiles';
 import type { AiModelLists } from '@/lib/ai/types';
+import type { AiEffort } from '@/lib/ai/effort';
 
 // Re-export Prisma enums for convenience
 export type { ConnectionStatus, RefreshSchedule };
@@ -102,6 +103,9 @@ export interface SettingsResponse {
     exploreModelId: string;
     recsProvider: string;
     recsModelId: string;
+    chatEffort: AiEffort;
+    exploreEffort: AiEffort;
+    recsEffort: AiEffort;
   };
 }
 
@@ -149,6 +153,9 @@ export interface SettingsUpdateRequest {
   aiExploreModelId?: string;
   aiRecsProvider?: string;
   aiRecsModelId?: string;
+  aiChatEffort?: AiEffort;
+  aiExploreEffort?: AiEffort;
+  aiRecsEffort?: AiEffort;
   aiModelLists?: AiModelLists;
 }
 

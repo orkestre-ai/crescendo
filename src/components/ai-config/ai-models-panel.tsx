@@ -19,6 +19,15 @@ import { Loader2, Sparkles, Brain, Gem, Server } from 'lucide-react';
 import type { SettingsResponse } from '@/types/settings';
 import type { ProviderName, ModelEntry, AiModelLists } from '@/lib/ai/types';
 import { ProviderCard } from '@/components/settings/provider-card';
+import { EFFORT_LEVELS, supportsEffort, type AiEffort } from '@/lib/ai/effort';
+
+const EFFORT_LABELS: Record<AiEffort, string> = {
+  low: 'Low (fastest, cheapest)',
+  medium: 'Medium',
+  high: 'High',
+  xhigh: 'Extra high',
+  max: 'Max (slowest, most thorough)',
+};
 
 interface AiModelsPanelProps {
   settings: SettingsResponse;
@@ -39,6 +48,11 @@ export function AiModelsPanel({ settings, onSettingsUpdate }: AiModelsPanelProps
   const [recsAssignment, setRecsAssignment] = useState(
     `${settings.providers.recsProvider}:${settings.providers.recsModelId}`
   );
+
+  // Reasoning effort per surface
+  const [chatEffort, setChatEffort] = useState<AiEffort>(settings.providers.chatEffort);
+  const [exploreEffort, setExploreEffort] = useState<AiEffort>(settings.providers.exploreEffort);
+  const [recsEffort, setRecsEffort] = useState<AiEffort>(settings.providers.recsEffort);
 
   // AI Limits state
   const [chatMaxContext, setChatMaxContext] = useState(settings.ai.chatMaxContext);
@@ -85,7 +99,10 @@ export function AiModelsPanel({ settings, onSettingsUpdate }: AiModelsPanelProps
     chatAssignment !== `${settings.providers.chatProvider}:${settings.providers.chatModelId}` ||
     exploreAssignment !==
       `${settings.providers.exploreProvider}:${settings.providers.exploreModelId}` ||
-    recsAssignment !== `${settings.providers.recsProvider}:${settings.providers.recsModelId}`;
+    recsAssignment !== `${settings.providers.recsProvider}:${settings.providers.recsModelId}` ||
+    chatEffort !== settings.providers.chatEffort ||
+    exploreEffort !== settings.providers.exploreEffort ||
+    recsEffort !== settings.providers.recsEffort;
 
   // Save model assignments + model lists + limits via PUT /api/settings
   const handleSave = async () => {
@@ -110,6 +127,9 @@ export function AiModelsPanel({ settings, onSettingsUpdate }: AiModelsPanelProps
           aiExploreModelId: explore.modelId,
           aiRecsProvider: recs.provider,
           aiRecsModelId: recs.modelId,
+          aiChatEffort: chatEffort,
+          aiExploreEffort: exploreEffort,
+          aiRecsEffort: recsEffort,
         }),
       });
 
@@ -228,6 +248,36 @@ export function AiModelsPanel({ settings, onSettingsUpdate }: AiModelsPanelProps
     });
   };
 
+  // Reasoning effort dropdown, disabled for models that don't take the setting
+  const renderEffortSelect = (
+    id: string,
+    assignment: string,
+    value: AiEffort,
+    onChange: (v: AiEffort) => void
+  ) => {
+    const { provider, modelId } = parseAssignment(assignment);
+    const enabled = supportsEffort(provider as ProviderName, modelId);
+    return (
+      <Select value={value} onValueChange={(v) => onChange(v as AiEffort)} disabled={!enabled}>
+        <SelectTrigger
+          id={id}
+          className="w-full sm:w-56"
+          aria-label="Reasoning effort"
+          title={enabled ? 'Reasoning effort' : 'This model has no reasoning-effort setting'}
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {EFFORT_LEVELS.map((level) => (
+            <SelectItem key={level} value={level}>
+              {EFFORT_LABELS[level]}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Section 1: Model Assignment */}
@@ -235,70 +285,77 @@ export function AiModelsPanel({ settings, onSettingsUpdate }: AiModelsPanelProps
         <CardHeader>
           <CardTitle>Model Assignment</CardTitle>
           <CardDescription>
-            Choose which model to use for each AI feature. Only models from configured providers are
-            available.
+            Choose which model to use for each AI feature, and how much reasoning it does. Higher
+            effort gives more thorough answers but is slower and uses more tokens. Only models from
+            configured providers are available.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Chat Model */}
           <div className="space-y-2">
             <Label htmlFor="chat-assignment">Chat Model</Label>
-            <Select
-              value={chatAssignment}
-              onValueChange={setChatAssignment}
-              disabled={!hasAnyProvider}
-            >
-              <SelectTrigger id="chat-assignment" className="w-full">
-                <SelectValue
-                  placeholder={
-                    hasAnyProvider ? 'Select a model' : 'Configure a provider above'
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>{renderModelOptions()}</SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              Model used for page chat conversations
-            </p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Select
+                value={chatAssignment}
+                onValueChange={setChatAssignment}
+                disabled={!hasAnyProvider}
+              >
+                <SelectTrigger id="chat-assignment" className="w-full">
+                  <SelectValue
+                    placeholder={hasAnyProvider ? 'Select a model' : 'Configure a provider above'}
+                  />
+                </SelectTrigger>
+                <SelectContent>{renderModelOptions()}</SelectContent>
+              </Select>
+              {renderEffortSelect('chat-effort', chatAssignment, chatEffort, setChatEffort)}
+            </div>
+            <p className="text-xs text-muted-foreground">Model used for page chat conversations</p>
           </div>
 
           {/* Explore Model */}
           <div className="space-y-2">
             <Label htmlFor="explore-assignment">Explore Model</Label>
-            <Select
-              value={exploreAssignment}
-              onValueChange={setExploreAssignment}
-              disabled={!hasAnyProvider}
-            >
-              <SelectTrigger id="explore-assignment" className="w-full">
-                <SelectValue
-                  placeholder={
-                    hasAnyProvider ? 'Select a model' : 'Configure a provider above'
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>{renderModelOptions()}</SelectContent>
-            </Select>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Select
+                value={exploreAssignment}
+                onValueChange={setExploreAssignment}
+                disabled={!hasAnyProvider}
+              >
+                <SelectTrigger id="explore-assignment" className="w-full">
+                  <SelectValue
+                    placeholder={hasAnyProvider ? 'Select a model' : 'Configure a provider above'}
+                  />
+                </SelectTrigger>
+                <SelectContent>{renderModelOptions()}</SelectContent>
+              </Select>
+              {renderEffortSelect(
+                'explore-effort',
+                exploreAssignment,
+                exploreEffort,
+                setExploreEffort
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">Model used for exploration queries</p>
           </div>
 
           {/* Recommendations Model */}
           <div className="space-y-2">
             <Label htmlFor="recs-assignment">Recommendations Model</Label>
-            <Select
-              value={recsAssignment}
-              onValueChange={setRecsAssignment}
-              disabled={!hasAnyProvider}
-            >
-              <SelectTrigger id="recs-assignment" className="w-full">
-                <SelectValue
-                  placeholder={
-                    hasAnyProvider ? 'Select a model' : 'Configure a provider above'
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>{renderModelOptions()}</SelectContent>
-            </Select>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Select
+                value={recsAssignment}
+                onValueChange={setRecsAssignment}
+                disabled={!hasAnyProvider}
+              >
+                <SelectTrigger id="recs-assignment" className="w-full">
+                  <SelectValue
+                    placeholder={hasAnyProvider ? 'Select a model' : 'Configure a provider above'}
+                  />
+                </SelectTrigger>
+                <SelectContent>{renderModelOptions()}</SelectContent>
+              </Select>
+              {renderEffortSelect('recs-effort', recsAssignment, recsEffort, setRecsEffort)}
+            </div>
             <p className="text-xs text-muted-foreground">
               Model used for generating optimization recommendations
             </p>
@@ -397,7 +454,7 @@ export function AiModelsPanel({ settings, onSettingsUpdate }: AiModelsPanelProps
       <Card>
         <CardHeader>
           <CardTitle>AI Limits</CardTitle>
-          <CardDescription>Configure token limits for Chat and Explore modes</CardDescription>
+          <CardDescription>Token limits for Chat and Explore modes</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
@@ -411,10 +468,13 @@ export function AiModelsPanel({ settings, onSettingsUpdate }: AiModelsPanelProps
                   const v = parseInt(e.target.value);
                   if (!isNaN(v)) setChatMaxContext(v);
                 }}
-                min={1000}
-                max={200000}
+                min={50000}
+                max={1000000}
               />
-              <p className="text-xs text-muted-foreground">Max input tokens per request</p>
+              <p className="text-xs text-muted-foreground">
+                Input cap per request. Claude summarizes older messages when a conversation reaches
+                it; other models drop the oldest messages.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="chat-max-tokens">Max Response (tokens)</Label>
@@ -427,9 +487,11 @@ export function AiModelsPanel({ settings, onSettingsUpdate }: AiModelsPanelProps
                   if (!isNaN(v)) setChatMaxTokens(v);
                 }}
                 min={256}
-                max={8192}
+                max={64000}
               />
-              <p className="text-xs text-muted-foreground">Max output tokens per response</p>
+              <p className="text-xs text-muted-foreground">
+                Max output tokens per response, including reasoning
+              </p>
             </div>
           </div>
         </CardContent>

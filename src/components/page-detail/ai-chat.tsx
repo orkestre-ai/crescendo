@@ -16,6 +16,7 @@ import {
   Check,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { isCompactionPart } from '@/lib/ai/context';
 import { ToolActivityPanel } from './tool-activity-panel';
 import {
   extractToolEntries,
@@ -102,11 +103,23 @@ interface DbMessage {
   role: string;
   content: string;
   toolCalls?: { tool: string; params?: Record<string, unknown>; result?: unknown }[] | null;
+  compaction?: string | null;
 }
 
 function dbMessagesToUI(messages: DbMessage[]): UIMessage[] {
   return messages.map((m) => {
-    const parts: UIMessage['parts'] = [{ type: 'text' as const, text: m.content }];
+    const parts: UIMessage['parts'] = [];
+
+    // A stored compaction summary goes first, tagged so the chat route sends
+    // it back to Claude in place of the turns it summarizes.
+    if (m.role === 'assistant' && m.compaction) {
+      parts.push({
+        type: 'text',
+        text: m.compaction,
+        providerMetadata: { anthropic: { type: 'compaction' } },
+      });
+    }
+    parts.push({ type: 'text' as const, text: m.content });
 
     // Reconstruct tool parts from persisted toolCalls JSON so extractToolEntries picks them up
     if (m.role === 'assistant' && Array.isArray(m.toolCalls)) {
@@ -197,6 +210,29 @@ export function AIChat({ pageId }: AIChatProps) {
   });
 
   const isStreaming = status === 'streaming' || status === 'submitted';
+
+  // How the chat route kept the input under Max Context: Claude summarized
+  // earlier turns, or (other models) the oldest turns were left out.
+  const contextNote = useMemo(() => {
+    const lastReply = [...messages].reverse().find((m) => m.role === 'assistant');
+    if ((lastReply?.metadata as { droppedMessages?: number } | undefined)?.droppedMessages) {
+      return 'The oldest messages in this conversation are no longer sent to the model, to stay under the Max Context limit.';
+    }
+    if (messages.some((m) => m.parts.some(isCompactionPart))) {
+      return 'Earlier messages in this conversation have been summarized to stay under the Max Context limit.';
+    }
+    return null;
+  }, [messages]);
+
+  // Route errors arrive as the raw JSON body ({"error": "..."}); show just the message.
+  const errorMessage = useMemo(() => {
+    if (!error) return null;
+    try {
+      return (JSON.parse(error.message) as { error?: string }).error ?? error.message;
+    } catch {
+      return error.message;
+    }
+  }, [error]);
 
   // ── Extract tool entries from current messages (memoized) ───────
   const toolEntries = useMemo(() => extractToolEntries(messages), [messages]);
@@ -476,13 +512,16 @@ export function AIChat({ pageId }: AIChatProps) {
           {error && (
             <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
               <AlertTriangle className="h-4 w-4 shrink-0" />
-              <span className="flex-1">{error.message}</span>
+              <span className="flex-1">{errorMessage}</span>
             </div>
           )}
         </div>
 
         {/* Input bar */}
         <div className="border-t bg-background px-4 py-3">
+          {contextNote && (
+            <p className="mb-2 text-xs text-muted-foreground">{contextNote}</p>
+          )}
           <div className="flex items-end gap-2">
             <Textarea
               ref={textareaRef}

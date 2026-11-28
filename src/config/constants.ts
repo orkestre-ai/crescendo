@@ -41,9 +41,6 @@ export const ON_DEMAND_REFRESH_TARGET_MS = 300000; // SC-004 (5 minutes)
 export const PAGE_DETAIL_LOAD_TARGET_MS = 3000; // SC-008
 
 // Claude AI Configuration
-export const CLAUDE_MODEL = 'claude-haiku-4-5-20251001';
-export const CLAUDE_MAX_TOKENS = 1024;
-export const CLAUDE_TEMPERATURE = 0.7;
 export const CLAUDE_BATCH_SIZE = 5; // Pages per batch
 
 // Donation Velocity Thresholds (week-over-week % change)

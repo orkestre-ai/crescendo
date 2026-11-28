@@ -2,13 +2,18 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createOllama } from 'ollama-ai-provider-v2';
+import type { streamText } from 'ai';
 import { decrypt } from '@/lib/crypto';
 import { getOrCreateSettings } from '@/lib/settings';
 import { rootLogger } from '@/lib/logging';
-import { DEFAULT_MODEL_LISTS } from './defaults';
+import { DEFAULT_MODEL_ID, getContextWindow, isContextFull, withCurrentDefaults } from './defaults';
+import { supportsEffort, type AiEffort } from './effort';
+import { supportsCompaction } from './context';
 import type { ProviderName, ProviderConfig, AiSurface, AiModelLists } from './types';
 
 const log = rootLogger.child({ module: 'ai-providers' });
+
+type ProviderOptions = NonNullable<Parameters<typeof streamText>[0]['providerOptions']>;
 
 /**
  * Normalize an Ollama base URL into root and API forms.
@@ -59,9 +64,12 @@ export async function getProviderConfig(
   const modelField = surface === 'chat' ? 'aiChatModelId'
     : surface === 'explore' ? 'aiExploreModelId'
     : 'aiRecsModelId';
+  const effortField = surface === 'chat' ? 'aiChatEffort'
+    : surface === 'explore' ? 'aiExploreEffort'
+    : 'aiRecsEffort';
 
   const provider = (settings[providerField] as ProviderName) || 'anthropic';
-  const modelId = (settings[modelField] as string) || DEFAULT_MODEL_LISTS.anthropic[1].id;
+  const modelId = (settings[modelField] as string) || DEFAULT_MODEL_ID;
 
   // Resolve API key based on provider
   const apiKey = await resolveApiKey(provider, settings);
@@ -70,7 +78,9 @@ export async function getProviderConfig(
     baseUrl = normalizeOllamaUrl(settings.aiOllamaBaseUrl).api;
   }
 
-  return { provider, modelId, apiKey, baseUrl };
+  const effort = settings[effortField] as AiEffort;
+
+  return { provider, modelId, effort, apiKey, baseUrl };
 }
 
 /**
@@ -78,7 +88,7 @@ export async function getProviderConfig(
  */
 export async function getModelLists(): Promise<AiModelLists> {
   const settings = await getOrCreateSettings();
-  return (settings.aiModelLists as AiModelLists | null) ?? DEFAULT_MODEL_LISTS;
+  return withCurrentDefaults(settings.aiModelLists as AiModelLists | null);
 }
 
 /**
@@ -129,4 +139,68 @@ async function resolveApiKey(
     case 'ollama':
       return undefined; // Ollama uses baseUrl, no API key
   }
+}
+
+/**
+ * Generation settings for a surface. Reasoning effort comes from the saved
+ * per-surface setting and is sent only to models that accept it. Recs get a
+ * fixed output cap; chat and explore callers pass the Max Response setting.
+ * Thinking counts against the output cap.
+ *
+ * Chat and explore resend the history and tool results on every call, so
+ * Anthropic prompt caching is on for them (the repeated prefix bills at about
+ * a tenth). OpenAI and Gemini cache repeated prefixes automatically.
+ *
+ * With a contextCap, Claude models that support it compact (summarize) the
+ * conversation server-side once a call's input reaches the cap.
+ */
+export function getGenerationOptions(
+  config: ProviderConfig,
+  surface: AiSurface,
+  contextCap?: number,
+): { maxOutputTokens?: number; providerOptions?: ProviderOptions } {
+  const { provider, modelId, effort } = config;
+  const withEffort = supportsEffort(provider, modelId);
+  const withCache = provider === 'anthropic' && surface !== 'recs';
+  const withCompaction = contextCap !== undefined && surface !== 'recs' && supportsCompaction(provider, modelId);
+
+  let providerOptions: ProviderOptions | undefined;
+  if (provider === 'anthropic' && (withEffort || withCache)) {
+    providerOptions = {
+      anthropic: {
+        ...(withEffort && { effort }),
+        ...(withCache && { cacheControl: { type: 'ephemeral' } }),
+        ...(withCompaction && {
+          contextManagement: {
+            // The API rejects triggers below 50,000 tokens
+            edits: [
+              {
+                type: 'compact_20260112',
+                trigger: { type: 'input_tokens', value: Math.max(contextCap, 50_000) },
+              },
+            ],
+          },
+        }),
+      },
+    };
+  } else if (provider === 'openai' && withEffort) {
+    providerOptions = { openai: { reasoningEffort: effort } };
+  }
+
+  return {
+    ...(surface === 'recs' && { maxOutputTokens: 16000 }),
+    ...(providerOptions && { providerOptions }),
+  };
+}
+
+/**
+ * Stop condition that ends a tool loop before the next step could overflow
+ * the model's context window. Never fires for models with an unknown window.
+ */
+export function contextFullStop(config: ProviderConfig, maxOutputTokens: number) {
+  const contextWindow = getContextWindow(config.provider, config.modelId);
+  return ({ steps }: { steps: { usage: { inputTokens?: number } }[] }) => {
+    const input = steps[steps.length - 1]?.usage.inputTokens ?? 0;
+    return contextWindow !== undefined && isContextFull(input, maxOutputTokens, contextWindow);
+  };
 }

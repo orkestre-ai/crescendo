@@ -1,4 +1,5 @@
 import type { UIMessage } from 'ai';
+import { isCompactionPart } from './context';
 
 export interface ToolEntry {
   id: string;
@@ -15,7 +16,7 @@ export interface ToolEntry {
  */
 export function extractTextFromParts(msg: UIMessage): string {
   return msg.parts
-    .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+    .filter((p): p is { type: 'text'; text: string } => p.type === 'text' && !isCompactionPart(p))
     .map((p) => p.text)
     .join('');
 }
