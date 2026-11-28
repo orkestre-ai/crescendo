@@ -12,6 +12,14 @@ import { interpolateTemplate } from '@/lib/prompt-utils';
 import { resolveDynamicVariables } from '@/lib/ai/dynamic-template-variables';
 import { createExplorationLogger } from '@/lib/logging/journeys';
 
+// Explorations run long, whole-site analyses, so they get more room than page chat.
+// Model rounds before the run must stop and write.
+const EXPLORATION_MAX_STEPS = 25;
+// Output per round; thinking counts against it.
+const EXPLORATION_MAX_OUTPUT_TOKENS = 64_000;
+// Context before compaction summarises older tool results.
+const EXPLORATION_MAX_CONTEXT = 400_000;
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -173,13 +181,16 @@ export async function POST(
       ...getGenerationOptions(
         config,
         'explore',
-        getContextCap(config, aiSettings.chatMaxContext, aiSettings.chatMaxTokens)
+        getContextCap(config, EXPLORATION_MAX_CONTEXT, EXPLORATION_MAX_OUTPUT_TOKENS)
       ),
-      maxOutputTokens: aiSettings.chatMaxTokens,
+      maxOutputTokens: EXPLORATION_MAX_OUTPUT_TOKENS,
       system: systemPrompt,
       messages: await convertToModelMessages([userMessage]),
       tools: getTools(enabledTools),
-      stopWhen: [stepCountIs(10), contextFullStop(config, aiSettings.chatMaxTokens)],
+      stopWhen: [
+        stepCountIs(EXPLORATION_MAX_STEPS),
+        contextFullStop(config, EXPLORATION_MAX_OUTPUT_TOKENS),
+      ],
       onFinish: async ({ steps, usage }) => {
         try {
           // Leave any compaction summary out of the saved response

@@ -454,7 +454,7 @@ export function AiModelsPanel({ settings, onSettingsUpdate }: AiModelsPanelProps
       <Card>
         <CardHeader>
           <CardTitle>AI Limits</CardTitle>
-          <CardDescription>Token limits for Chat and Explore modes</CardDescription>
+          <CardDescription>Token limits for Chat. Explorations have their own, larger limits.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
