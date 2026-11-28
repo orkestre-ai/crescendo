@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import {
   collectEnDaily,
   daysBetween,
-  torontoDate,
   type EnDailyRow,
   type EnDailyStore,
   type EnSummaryClient,
 } from '../en-daily';
 import type { FundraisingSummaryData } from '@/types/fundraising';
+import { zonedDate } from '../time-zone';
 
 type Call = { pageId: string; startDate: string; endDate: string };
 
@@ -83,12 +83,14 @@ test('daysBetween: both ends included, across a month end', () => {
   assert.throws(() => daysBetween('yesterday', '2025-12-02'), /YYYY-MM-DD/);
 });
 
-test('torontoDate: the day in Toronto, not in UTC', () => {
+test("zonedDate: the day in the organisation's time zone, not in UTC", () => {
   // 03:00 UTC on 2 December is 22:00 on 1 December in Toronto.
   const now = new Date('2026-12-02T03:00:00Z');
-  assert.equal(torontoDate(now), '2026-12-01');
-  assert.equal(torontoDate(now, 1), '2026-11-30');
-  assert.equal(torontoDate(now, 7), '2026-11-24');
+  assert.equal(zonedDate(now, 'America/Toronto'), '2026-12-01');
+  assert.equal(zonedDate(now, 'America/Toronto', 1), '2026-11-30');
+  assert.equal(zonedDate(now, 'America/Toronto', 7), '2026-11-24');
+  // The same moment is already 2 December in London.
+  assert.equal(zonedDate(now, 'Europe/London'), '2026-12-02');
 });
 
 test('collectEnDaily: a page with nothing in the range costs one call and gets zero rows', async () => {

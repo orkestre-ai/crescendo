@@ -189,12 +189,6 @@ export async function collectEnDaily(opts: {
   return result;
 }
 
-/** Days in a Toronto calendar, so "yesterday" is the organisation's yesterday. */
-export function torontoDate(now: Date, daysBack = 0): string {
-  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto' }).format(now);
-  return new Date(Date.parse(`${today}T00:00:00Z`) - daysBack * DAY_MS).toISOString().slice(0, 10);
-}
-
 /** What is stored for a range, to compare with the Engaging Networks interface. */
 export async function enDailyTotals(from: string, to: string, enPageIds?: string[]) {
   const where = {

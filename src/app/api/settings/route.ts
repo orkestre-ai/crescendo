@@ -4,6 +4,7 @@ import { EFFORT_LEVELS } from '@/lib/ai/effort';
 import { getSettingsResponse, updateSettings } from '@/lib/settings';
 import { rootLogger } from '@/lib/logging';
 import type { ErrorResponse } from '@/types/settings';
+import { isValidTimeZone } from '@/lib/time-zone';
 
 const logger = rootLogger.child({ journey: 'request', route: '/api/settings' });
 
@@ -55,6 +56,10 @@ const updateSettingsSchema = z.object({
   aiOrgSearchDomains: z.array(z.string().regex(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,}$/, 'Invalid domain format')).max(5).optional(),
   reportingCurrency: z.enum(['USD', 'CAD', 'GBP', 'EUR', 'AUD']).optional(),
   organizationName: z.string().max(200).nullable().optional(),
+  timeZone: z
+    .string()
+    .refine(isValidTimeZone, { message: 'Not a known time zone, such as Europe/London' })
+    .optional(),
   anthropicApiKey: z.string().optional(),
   // Multi-provider fields (Phase 8)
   openaiApiKey: z.string().optional(),

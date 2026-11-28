@@ -39,7 +39,7 @@ export interface DefinitionFormData {
   maxSteps: number;
   maxMinutes: number;
   enabled: boolean;
-  /** "HH:MM" in Toronto, or null when it is not scheduled. */
+  /** "HH:MM" in the Settings time zone, or null when it is not scheduled. */
   scheduleDailyAt: string | null;
 }
 
@@ -495,7 +495,7 @@ export function DefinitionForm({
           className="w-36"
         />
         <p className="text-xs text-muted-foreground">
-          Toronto time. Crescendo starts the report once a day after this time, with each field at
+          In the time zone set in Settings. Crescendo starts the report once a day after this time, with each field at
           its default, so every required field needs one. If another report is running it waits.
           Leave it empty to start the report only by hand.
         </p>

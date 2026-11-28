@@ -19,7 +19,7 @@ export const DEFAULT_MAX_MINUTES = 120;
 export const MAX_STEPS_LIMIT = 2000;
 export const MAX_MINUTES_LIMIT = 720;
 
-/** A daily schedule time, "HH:MM" from 00:00 to 23:59, in America/Toronto. */
+/** A daily schedule time, "HH:MM" from 00:00 to 23:59, in the Settings time zone. */
 export const SCHEDULE_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 const fields = {

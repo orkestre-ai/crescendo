@@ -75,6 +75,8 @@ export interface SettingsResponse {
     currency: ReportingCurrency;
     /** The organisation reports are written for. */
     organizationName: string | null;
+    /** IANA time zone: when "yesterday" ends and daily schedules run. */
+    timeZone: string;
   };
   anthropic: {
     isConfigured: boolean;
@@ -148,6 +150,7 @@ export interface SettingsUpdateRequest {
   aiOrgSearchDomains?: string[];
   reportingCurrency?: ReportingCurrency;
   organizationName?: string | null;
+  timeZone?: string;
   anthropicApiKey?: string;
   // Multi-provider fields
   openaiApiKey?: string;
