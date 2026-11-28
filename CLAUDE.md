@@ -191,6 +191,7 @@ Validated via zod in `src/config/env.ts`.
 | `ANTHROPIC_API_KEY`        | No       | Starts with `sk-ant-` (optional, for AI recommendations) |
 | `NEXT_PUBLIC_APP_URL`      | No       | Default: `http://localhost:3000`                       |
 | `CRON_SECRET`              | No       | Optional, for external cron triggering via curl        |
+| `ENCRYPTION_KEY`           | Yes      | 64 hex chars (`openssl rand -hex 32`); encrypts keys saved in Settings |
 | `SCREENSHOT_DIR`           | No       | Defaults to `public/screenshots`                       |
 | `ENABLE_SCHEDULER`         | No       | Defaults to `true`                                     |
 | `SYNC_DEBUG_LIMIT`         | No       | Limit sync to N most-recently-modified pages (0 = no limit) |

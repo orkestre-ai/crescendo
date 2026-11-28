@@ -7,7 +7,9 @@
 # ---- Dependencies ----
 FROM node:26-slim AS deps
 WORKDIR /app
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json prisma.config.ts ./
+# postinstall runs `prisma generate`, which needs the schema and config
+COPY prisma ./prisma
 RUN npm ci
 
 # ---- Builder ----
@@ -35,6 +37,7 @@ COPY --chown=nextjs:nodejs --from=builder /app/public ./public
 
 # Copy Prisma schema + migrations for runtime migrate
 COPY --chown=nextjs:nodejs --from=builder /app/prisma ./prisma
+COPY --chown=nextjs:nodejs --from=builder /app/prisma.config.ts ./
 
 # Copy full node_modules for Prisma CLI (prisma migrate deploy needs 25+ transitive deps)
 COPY --chown=nextjs:nodejs --from=builder /app/node_modules ./node_modules

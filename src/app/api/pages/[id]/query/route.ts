@@ -191,6 +191,13 @@ export async function POST(
         stepCountIs(EXPLORATION_MAX_STEPS),
         contextFullStop(config, EXPLORATION_MAX_OUTPUT_TOKENS),
       ],
+      // Without this, a provider error mid-run is swallowed and nothing is saved or logged
+      onError: ({ error }) => {
+        exploreLog.error(
+          error instanceof Error ? error.message : String(error),
+          error instanceof Error ? error : undefined
+        );
+      },
       onFinish: async ({ steps, usage }) => {
         try {
           // Leave any compaction summary out of the saved response

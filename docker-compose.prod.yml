@@ -1,0 +1,42 @@
+# Production overlay for a single-host deployment behind a Cloudflare Tunnel.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Publishes no ports: the only way in is the cloudflared tunnel, which reaches the
+# app at http://app:3000 on the internal network. Secrets come from .env (see
+# .env.production.example). Requires Docker Compose 2.24+ for !reset / !override.
+
+services:
+  postgres:
+    ports: !reset []
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+
+  # Debug only: `--profile debug up -d pgadmin`, then reach it over an SSH tunnel.
+  pgadmin:
+    profiles: [debug]
+    ports: !override
+      - '127.0.0.1:50500:80'
+
+  app:
+    ports: !reset []
+    environment:
+      NODE_ENV: production
+      POSTGRES_URL: postgresql://postgres:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/crescendo
+      POSTGRES_PRISMA_URL: postgresql://postgres:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/crescendo
+      POSTGRES_URL_NON_POOLING: postgresql://postgres:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/crescendo
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.11.2
+    container_name: crescendo-cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?set CLOUDFLARE_TUNNEL_TOKEN in .env}
+      # Origin for tunnels created with `cloudflared tunnel create` (locally
+      # managed). Dashboard-managed tunnels point at the same origin.
+      TUNNEL_URL: http://app:3000
+    depends_on:
+      - app
+    networks:
+      - crescendo-network
