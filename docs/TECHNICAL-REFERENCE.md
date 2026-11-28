@@ -1096,6 +1096,7 @@ Chat and explore limits:
 |----------|-------|-------------|
 | `ga4_query` | GA4 Query | Query Google Analytics data |
 | `org_search` | Org Search | Search organization context |
+| `page_lookup` | Page Lookup | Find pages by EN page number, with EN gift totals |
 | `page_performance` | Page Performance | Get page metric trends |
 | `sitewide_compare` | Sitewide Compare | Compare against portfolio averages |
 | `snapshot_compare` | Snapshot Compare | Compare content versions |

@@ -1,5 +1,5 @@
 // Canonical tool mapping: DB key (underscore, matches AI_TOOLS) -> display label
-// Per D-03: the 6 available tools.
+// Per D-03: the available tools.
 // `hidden: true` removes a tool from the UI picker but keeps it in TOOL_KEYS,
 // so zod validation still accepts the key for any pre-existing exploration
 // rows that reference it. Underlying tool registration is unaffected.
@@ -24,6 +24,11 @@ export const AVAILABLE_TOOLS: ReadonlyArray<{
     label: 'Page Content Audit',
     description: 'Run 15 deterministic QA checks on page content',
     hidden: true,
+  },
+  {
+    key: 'page_lookup',
+    label: 'Page Lookup',
+    description: 'Find pages by EN page number, with EN gift totals',
   },
   {
     key: 'page_performance',
