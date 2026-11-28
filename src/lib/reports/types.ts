@@ -82,7 +82,7 @@ export interface ReportDefinition extends DefinitionSnapshot {
   isDefault: boolean;
   enabled: boolean;
   sortOrder: number;
-  /** "HH:MM" in America/Toronto: the schedule starts it once a day after this time. */
+  /** "HH:MM" in the Settings time zone: the schedule starts it once a day after this time. */
   scheduleDailyAt: string | null;
 }
 

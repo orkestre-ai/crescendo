@@ -275,6 +275,7 @@ export async function getSettingsResponse(): Promise<SettingsResponse> {
     reporting: {
       currency: (settings.reportingCurrency as ReportingCurrency) || 'CAD',
       organizationName: settings.organizationName,
+      timeZone: settings.timeZone,
     },
     anthropic: {
       isConfigured: isAnthropicConfigured,
@@ -374,6 +375,7 @@ export async function updateSettings(data: SettingsUpdateRequest): Promise<AppSe
   if (data.reportingCurrency !== undefined) updateData.reportingCurrency = data.reportingCurrency;
   if (data.organizationName !== undefined)
     updateData.organizationName = data.organizationName?.trim() || null;
+  if (data.timeZone !== undefined) updateData.timeZone = data.timeZone;
   if (data.anthropicApiKey !== undefined) {
     updateData.anthropicApiKeyEncrypted = data.anthropicApiKey
       ? encrypt(data.anthropicApiKey)
@@ -709,6 +711,12 @@ export async function getAiSettings(
     recsProvider: settings.aiRecsProvider as ProviderName,
     recsModelId: settings.aiRecsModelId,
   };
+}
+
+/** The organisation's time zone from Settings, an IANA name such as "America/Toronto". */
+export async function getTimeZone(): Promise<string> {
+  const settings = await getOrCreateSettings();
+  return settings.timeZone;
 }
 
 /**

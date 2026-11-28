@@ -428,7 +428,11 @@ createSinglePageJob(pageId, startPhase, triggeredBy='debug')
 | Schedule | Cron | Purpose |
 |----------|------|---------|
 | Hourly | `0 * * * *` | Check scheduled refresh, create SYNC job if due |
-| Weekly | `0 2 * * 0` | Cleanup old data (Sundays 2 AM) |
+| Weekly | `0 2 * * 0` | Cleanup old data (Sundays 2 AM, server time) |
+| Hourly | `0 * * * *` | At 05:00 in the Settings time zone, fetch Engaging Networks daily giving for the last 7 days |
+| Every 10 min | `*/10 * * * *` | Start report definitions whose daily time (`scheduleDailyAt`) has passed in the Settings time zone |
+
+The time zone is `AppSettings.timeZone`, an IANA name set under Settings → Organisation (default `America/Toronto`). It also decides which day "yesterday" is for daily giving. Helpers are in `src/lib/time-zone.ts`. A change applies at the next tick, with no restart.
 
 #### Guards
 

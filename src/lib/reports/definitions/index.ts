@@ -19,7 +19,7 @@ export interface ReportDefinitionSeed {
   /** False hides it from the list of reports a person can start. */
   enabled: boolean;
   /**
-   * "HH:MM" in America/Toronto to run it once a day. Like `enabled`, it is
+   * "HH:MM" in the Settings time zone to run it once a day. Like `enabled`, it is
    * set when the built-in is first seeded and is the person's to change after.
    */
   scheduleDailyAt?: string;

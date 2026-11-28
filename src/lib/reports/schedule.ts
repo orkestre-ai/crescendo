@@ -1,4 +1,6 @@
 import { rootLogger } from '@/lib/logging';
+import { getTimeZone } from '@/lib/settings';
+import { zonedClock } from '@/lib/time-zone';
 import { resolveInputDefaults, validateRunInputs } from './definitions/inputs';
 import { SCHEDULE_TIME } from './definitions/schema';
 import { ReportBusyError, runReport, startReportRun } from './runner';
@@ -7,48 +9,29 @@ import type { ReportDefinition, ReportRun } from './types';
 
 const log = rootLogger.child({ journey: 'report', component: 'schedule' });
 
-/** Schedules are read in this time zone: "07:00" is 7am in Toronto. */
-export const SCHEDULE_TIME_ZONE = 'America/Toronto';
-
 /** Who a run the schedule starts is prepared by. */
 export const SCHEDULED_BY = 'Crescendo (daily)';
 
 // stopInterruptedRuns writes this reason on a run a restart left behind.
 const RESTART_REASON = 'Stopped because the server restarted';
 
-/** The day and the time of day in Toronto, as YYYY-MM-DD and HH:MM. */
-export function torontoClock(now: Date): { day: string; time: string } {
-  const parts = Object.fromEntries(
-    new Intl.DateTimeFormat('en-CA', {
-      timeZone: SCHEDULE_TIME_ZONE,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hourCycle: 'h23',
-    })
-      .formatToParts(now)
-      .map((part) => [part.type, part.value])
-  );
-  return {
-    day: `${parts.year}-${parts.month}-${parts.day}`,
-    time: `${parts.hour}:${parts.minute}`,
-  };
-}
-
 const interruptedByRestart = (run: ReportRun) =>
   run.status === 'STOPPED' && (run.statusReason ?? '').startsWith(RESTART_REASON);
 
 /**
- * The enabled definitions whose daily time has passed today in Toronto and
+ * The enabled definitions whose daily time has passed today in the
+ * organisation's time zone (an IANA name, from Settings) and
  * that the schedule has not started today. A scheduled run that a server
  * restart stopped is tried once more; any other scheduled run today, however
  * it ended, means the definition is done for the day. Runs a person started
  * do not count.
  */
-export async function dueScheduledRuns(now: Date, store: ReportStore): Promise<ReportDefinition[]> {
-  const { day, time } = torontoClock(now);
+export async function dueScheduledRuns(
+  now: Date,
+  store: ReportStore,
+  timeZone: string
+): Promise<ReportDefinition[]> {
+  const { day, time } = zonedClock(now, timeZone);
   const scheduled = (await store.listDefinitions()).filter(
     (definition) =>
       definition.enabled &&
@@ -58,10 +41,10 @@ export async function dueScheduledRuns(now: Date, store: ReportStore): Promise<R
   );
   if (scheduled.length === 0) return [];
 
-  // Two days back covers the start of today in Toronto in any season.
+  // Two days back covers the start of today in any time zone and season.
   const recent = await store.listRunsSince(new Date(now.getTime() - 2 * 86_400_000));
   const today = recent.filter(
-    (run) => run.trigger === 'schedule' && torontoClock(run.createdAt).day === day
+    (run) => run.trigger === 'schedule' && zonedClock(run.createdAt, timeZone).day === day
   );
   return scheduled.filter((definition) => {
     const runs = today.filter((run) => run.definitionId === definition.id);
@@ -77,15 +60,21 @@ export async function dueScheduledRuns(now: Date, store: ReportStore): Promise<R
  */
 export async function startScheduledRuns(
   now: Date = new Date(),
-  deps: { store?: ReportStore; run?: (runId: string) => Promise<void> } = {}
+  deps: {
+    store?: ReportStore;
+    run?: (runId: string) => Promise<void>;
+    /** IANA time zone the daily times are read in. Defaults to the one in Settings. */
+    timeZone?: string;
+  } = {}
 ): Promise<string[]> {
   const store = deps.store ?? prismaStore;
+  const timeZone = deps.timeZone ?? (await getTimeZone());
   const run = deps.run ?? ((runId: string) => runReport(runId));
   const started: string[] = [];
 
-  for (const definition of await dueScheduledRuns(now, store)) {
+  for (const definition of await dueScheduledRuns(now, store, timeZone)) {
     const checked = validateRunInputs(
-      resolveInputDefaults(definition.inputs, torontoClock(now).day),
+      resolveInputDefaults(definition.inputs, zonedClock(now, timeZone).day),
       {}
     );
     if (!checked.ok) {

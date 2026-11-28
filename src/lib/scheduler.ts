@@ -1,9 +1,10 @@
 import cron from 'node-cron';
 import { schedulerLogger } from '@/lib/logging/journeys';
-import { shouldRunScheduledRefresh, updateLastRefresh } from './settings';
+import { getTimeZone, shouldRunScheduledRefresh, updateLastRefresh } from './settings';
 import { jobProcessor } from './jobs';
 import { runCleanup } from './cleanup';
-import { collectEnDaily, torontoDate } from './en-daily';
+import { collectEnDaily } from './en-daily';
+import { zonedClock, zonedDate } from './time-zone';
 import { prisma } from './db';
 import { ensureDefaultReportDefinitions } from './reports/definitions';
 import { startScheduledRuns } from './reports/schedule';
@@ -82,24 +83,26 @@ export function initScheduler(): void {
     }
   });
 
-  // Daily at 05:00 Toronto: Engaging Networks giving for the last 7 days
-  // through yesterday, so late or refunded gifts are corrected.
-  cron.schedule(
-    '0 5 * * *',
-    async () => {
-      try {
-        const now = new Date();
-        const result = await collectEnDaily({ from: torontoDate(now, 7), to: torontoDate(now, 1) });
-        schedulerLogger.enDailyCompleted({ ...result, errors: result.errors.length });
-      } catch (error) {
-        schedulerLogger.enDailyError(error as Error);
-      }
-    },
-    { timezone: 'America/Toronto' }
-  );
+  // Daily at 05:00 in the Settings time zone: Engaging Networks giving for the
+  // last 7 days through yesterday, so late or refunded gifts are corrected.
+  // Checked every hour, so a change of time zone applies without a restart.
+  cron.schedule('0 * * * *', async () => {
+    try {
+      const now = new Date();
+      const timeZone = await getTimeZone();
+      if (!zonedClock(now, timeZone).time.startsWith('05:')) return;
+      const result = await collectEnDaily({
+        from: zonedDate(now, timeZone, 7),
+        to: zonedDate(now, timeZone, 1),
+      });
+      schedulerLogger.enDailyCompleted({ ...result, errors: result.errors.length });
+    } catch (error) {
+      schedulerLogger.enDailyError(error as Error);
+    }
+  });
 
   // Every 10 minutes: start report definitions whose daily time has passed
-  // in Toronto. A busy runner leaves them due for the next tick. Seeding
+  // in the Settings time zone. A busy runner leaves them due for the next tick. Seeding
   // first means a new built-in is scheduled without anyone opening Reports.
   cron.schedule('*/10 * * * *', async () => {
     try {

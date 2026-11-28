@@ -72,7 +72,8 @@ apt-get install -y unattended-upgrades && dpkg-reconfigure -f noninteractive una
 fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
 echo '/swapfile none swap sw 0 0' >> /etc/fstab
 
-# Local time for the backup cron below
+# Local time for the backup cron below. Use the organisation's time zone; the app's
+# own schedules follow the time zone set in Settings → Organisation, not this one.
 timedatectl set-timezone America/Toronto
 
 # Tailscale SSH replaces sshd. Stop it listening on public interfaces

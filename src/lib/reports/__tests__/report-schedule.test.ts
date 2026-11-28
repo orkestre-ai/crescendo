@@ -2,7 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { BUILTIN_REPORT_DEFINITIONS } from '../definitions';
 import { stopInterruptedRuns } from '../runner';
-import { dueScheduledRuns, SCHEDULED_BY, startScheduledRuns, torontoClock } from '../schedule';
+import { dueScheduledRuns, SCHEDULED_BY, startScheduledRuns } from '../schedule';
+import { zonedClock } from '../../time-zone';
+
+const TORONTO = 'America/Toronto';
+const torontoClock = (now: Date) => zonedClock(now, TORONTO);
 import { memoryStore } from '../store';
 import type { ReportDefinition } from '../types';
 
@@ -26,7 +30,7 @@ const daily = (over: Partial<ReportDefinition> = {}): ReportDefinition => ({
 });
 
 /** A store whose clock the test moves, and a run function that only records. */
-function setup(definitions: ReportDefinition[] = [daily()]) {
+function setup(definitions: ReportDefinition[] = [daily()], timeZone = TORONTO) {
   let clock = new Date('2026-12-01T00:00:00Z');
   const store = memoryStore({ definitions, now: () => clock });
   const ran: string[] = [];
@@ -34,20 +38,21 @@ function setup(definitions: ReportDefinition[] = [daily()]) {
     clock = new Date(iso);
     return startScheduledRuns(clock, {
       store,
+      timeZone,
       run: async (runId) => {
         ran.push(runId);
       },
     });
   };
   const due = (iso: string) =>
-    dueScheduledRuns(new Date(iso), store).then((found) => found.map((d) => d.key));
+    dueScheduledRuns(new Date(iso), store, timeZone).then((found) => found.map((d) => d.key));
   // A run ends as the runner would end it.
   const end = (runId: string, status: 'COMPLETED' | 'FAILED' = 'COMPLETED') =>
     store.updateRun(runId, { status, completedAt: clock });
   return { store, ran, tick, due, end };
 }
 
-test('torontoClock: the day and time in Toronto, in winter and in summer', () => {
+test('zonedClock: the day and time in Toronto, in winter and in summer', () => {
   // EST is UTC-5: 03:00 UTC on 2 December is still 1 December in Toronto.
   assert.deepEqual(torontoClock(new Date('2026-12-02T03:00:00Z')), {
     day: '2026-12-01',
@@ -72,6 +77,13 @@ test('dueScheduledRuns: due from its time in Toronto, not before, in either seas
   assert.deepEqual(await due('2026-07-01T11:00:00Z'), ['daily']); // 07:00 EDT
   // 07:00 UTC is 02:00 in Toronto: the UTC day has turned but the time has not come.
   assert.deepEqual(await due('2026-12-02T07:00:00Z'), []);
+});
+
+test('dueScheduledRuns: reads the daily time in the time zone it is given', async () => {
+  const { due } = setup([daily()], 'Europe/London');
+  assert.deepEqual(await due('2026-12-01T06:59:00Z'), []); // 06:59 GMT
+  assert.deepEqual(await due('2026-12-01T07:00:00Z'), ['daily']); // 07:00 GMT, 02:00 in Toronto
+  assert.deepEqual(await due('2026-07-01T06:00:00Z'), ['daily']); // 07:00 BST
 });
 
 test('startScheduledRuns: once a day, marked as the schedule, with the defaults of the day in Toronto', async () => {

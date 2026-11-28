@@ -6,7 +6,17 @@ import { clog } from '@/lib/client-logger';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { SettingsResponse } from '@/types/settings';
+
+// Every IANA time zone the browser knows, such as "Europe/London".
+const TIME_ZONES: string[] = Intl.supportedValuesOf('timeZone');
 
 interface OrganizationPanelProps {
   settings: SettingsResponse;
@@ -15,11 +25,15 @@ interface OrganizationPanelProps {
 
 export function OrganizationPanel({ settings, onSettingsUpdate }: OrganizationPanelProps) {
   const saved = settings.reporting.organizationName ?? '';
+  const savedTimeZone = settings.reporting.timeZone;
   const [name, setName] = useState(saved);
+  const [timeZone, setTimeZone] = useState(savedTimeZone);
+  // Keep the saved zone choosable even if this browser's list lacks it
+  const timeZones = TIME_ZONES.includes(savedTimeZone) ? TIME_ZONES : [savedTimeZone, ...TIME_ZONES];
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  const hasChanges = name.trim() !== saved;
+  const hasChanges = name.trim() !== saved || timeZone !== savedTimeZone;
 
   const handleSave = async () => {
     if (!hasChanges) return;
@@ -31,11 +45,11 @@ export function OrganizationPanel({ settings, onSettingsUpdate }: OrganizationPa
       const response = await fetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ organizationName: name.trim() || null }),
+        body: JSON.stringify({ organizationName: name.trim() || null, timeZone }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update the organisation name');
+        throw new Error('Failed to update the organisation settings');
       }
 
       setSaveSuccess(true);
@@ -77,6 +91,23 @@ export function OrganizationPanel({ settings, onSettingsUpdate }: OrganizationPa
               maxLength={200}
             />
           </div>
+          <div className="flex-1">
+            <label htmlFor="organization-time-zone" className="text-sm font-medium mb-2 block">
+              Time zone
+            </label>
+            <Select value={timeZone} onValueChange={setTimeZone}>
+              <SelectTrigger id="organization-time-zone" className="w-full">
+                <SelectValue placeholder="Select time zone" />
+              </SelectTrigger>
+              <SelectContent>
+                {timeZones.map((zone) => (
+                  <SelectItem key={zone} value={zone}>
+                    {zone.replaceAll('_', ' ')}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="flex items-end gap-2">
             <Button onClick={handleSave} disabled={!hasChanges || isSaving} className="mt-6">
               {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
@@ -87,7 +118,8 @@ export function OrganizationPanel({ settings, onSettingsUpdate }: OrganizationPa
         </div>
         <p className="text-sm text-muted-foreground">
           Reports name the organisation in their title area and in the names of the files they
-          download as.
+          download as. The time zone sets when the day ends for daily giving, and when scheduled
+          reports and the daily Engaging Networks update run.
         </p>
       </CardContent>
     </Card>
