@@ -1,5 +1,5 @@
 // Canonical tool mapping: DB key (underscore, matches AI_TOOLS) -> display label
-// Per D-03: the available tools.
+// Per D-03: the available tools, plus the two full GA4 tools.
 // `hidden: true` removes a tool from the UI picker but keeps it in TOOL_KEYS,
 // so zod validation still accepts the key for any pre-existing exploration
 // rows that reference it. Underlying tool registration is unaffected.
