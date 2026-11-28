@@ -119,6 +119,21 @@ const cell = (metric: EnMetric, value: number) =>
   String(AMOUNTS.has(metric) ? Math.round(value * 100) / 100 : value);
 
 /**
+ * Engaging Networks can record monthly transactions with no money on them,
+ * such as charges to sustainers imported from another system. Counted, they
+ * add gifts worth nothing and pull the average gift down, so a page-day whose
+ * monthly transactions carry no amount loses them from every count.
+ */
+export function withoutUnpaidMonthly(row: EnGivingRow): EnGivingRow {
+  if (!row.recurringCount || row.recurringAmount) return row;
+  return {
+    ...row,
+    donationCount: row.donationCount - row.recurringCount,
+    recurringCount: 0,
+  };
+}
+
+/**
  * Sum stored days into rows. Without the page dimension every fetched day
  * (or each range, without the date dimension) has a row even when nothing
  * came in; with it, only pages with gifts appear, as GA4 leaves out empty rows.
@@ -197,7 +212,9 @@ export async function runEnFundraising(
       if (byDay) [...fetchedDates].forEach((date) => group(date));
       else group('');
     }
-    for (const row of giving) {
+    for (const stored of giving) {
+      const row = withoutUnpaidMonthly(stored);
+      if (!row.donationCount && !row.totalAmount) continue;
       const found = group(row.date, row);
       for (const metric of EN_METRICS) found.sums[metric] += row[metric];
     }
@@ -273,7 +290,7 @@ export const enFundraisingTool: ToolSkill = {
 
   instructions: `Use this tool for money and gift counts. Engaging Networks processed the gifts, so it counts gifts GA4 misses (ad blockers, payments finished on another domain) and splits one-time from monthly. It has no traffic, channels or devices: use GA4 for those.
 
-Metrics: totalAmount and donationCount are every gift; singleAmount and singleCount are one-time gifts; recurringAmount and recurringCount are monthly gifts. The monthly figures include every monthly charge in the period, existing donors' as well as new sign-ups, so say so when you report them. Amounts are in the currency named in "currency". Amounts and counts add up across days and pages.
+Metrics: totalAmount and donationCount are every gift; singleAmount and singleCount are one-time gifts; recurringAmount and recurringCount are monthly gifts that Engaging Networks recorded with an amount, mostly on the live donation forms. Monthly transactions it records with no amount, such as charges to imported sustainers, are left out of every count, donationCount included. So the monthly figures are not the whole monthly program: call them "monthly gifts recorded on donation pages" and never present them as total monthly giving. Amounts are in the currency named in "currency". Amounts and counts add up across days and pages.
 
 Dates must be absolute (YYYY-MM-DD). Give up to four date ranges; more than one adds a "dateRange" column, named from each range's name or date_range_0, date_range_1 and so on. The "date" column is written YYYYMMDD, as in GA4, so a dataset can join this query to a ga4_report query on "date". The "nthDay" dimension is the day's place in its own range, from "0000", as in GA4: with two ranges of the same length it lines this year's days up with last year's, so a dataset can join the two on "nthDay". The "page" dimension adds "pageId" (the Engaging Networks page id) and "pageName"; pages closed since are included.
 

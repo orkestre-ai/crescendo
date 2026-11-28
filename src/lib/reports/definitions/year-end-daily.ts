@@ -68,7 +68,7 @@ Run these five together, in one turn. Name the date ranges as given.
 
 RULES
 - Money and gifts come from Engaging Networks (queries 1 and 2). GA4 is for visits and for where gifts came from, which Engaging Networks cannot tell.
-- The monthly figures include every monthly charge in the period, existing donors' as well as new sign-ups. Say so wherever monthly giving appears.
+- The monthly figures are monthly gifts Engaging Networks recorded with an amount on donation pages. Monthly transactions it records with no amount, such as charges to imported sustainers, are left out of every count, gifts included. So they are not the whole monthly program: wherever monthly giving appears, call it "monthly on donation pages" and never total monthly giving.
 - A day listed in missingDays is unknown, not zero. Name those days in a flag and do not compare across them as if they were complete.
 - Sessions do not add up across channels or devices. Total sessions come from query 3, as a cell; the channel and device tables show each row's own sessions and no total row.
 - If GA4 shows no purchaseRevenue for the campaign so far, the property records gifts some other way: say so in one sentence and leave out the GA4 share.
@@ -86,13 +86,13 @@ THE DOCUMENT
 These blocks, in this order:
 1. report_header. organisation "{{organizationName}}", reportName "Daily year-end report", the headline (raised so far against the same weekdays last year) as the title, today's date written out, {{preparedBy}}, the time zone and the currency. The dek: "Engaging Networks giving from <campaign start> to <last full day>, against the same weekdays last year. Data through <last full day>."
 2. flag, only if a query listed missingDays: the days, and that they are unknown, not zero.
-3. stat_tiles with four tiles: raised so far, gifts, average gift and monthly share, each with last year's figure and the change. previousLabel is last year's year.
+3. stat_tiles with four tiles: raised so far, gifts, average gift and monthly share, each with last year's figure and the change. Label the fourth "Monthly share (donation pages)". previousLabel is last year's year.
 4. section "Yesterday", then stat_tiles with two tiles: raised and gifts on the last full day, against its same weekday last year, with the change.
 5. section "Day by day". A line_chart, one panel, x date, xKind date, lines this_year and last_year from the running dataset, titled "Raised so far". Then a data_table of the days dataset, the date columns with kind date and the change with kind change.
 6. section "Pace". prose: what the campaign would reach if the rest of the season went as last year's did, {{fig:<pace>}}, called a projection, not a forecast; then days until Giving Tuesday and until the campaign ends. Once Giving Tuesday has passed, give its raised and gifts against Giving Tuesday last year instead of the days until it.
 7. section "Where visits and gifts came from". A data_table by channel and one by device, campaign so far with yesterday beside it. Then one prose sentence: GA4 recorded {{fig:<share>}} of the money Engaging Networks recorded for the campaign so far; the rest is gifts GA4 did not see.
 8. section "Worth looking at today", then priority_cards with one to three cards: what stands out this morning against last year, each with its figures, its dates and a "Worth checking" line. If nothing stands out, one card saying so.
-9. definition_list "About these figures": money and gifts are from Engaging Networks; monthly giving includes existing donors' charges; "same weekdays last year" means 364 days earlier; visits and sources are from GA4, which misses some gifts; an AI assistant prepared this with read-only access, Crescendo computed every figure and ran every query a second time.
+9. definition_list "About these figures": money and gifts are from Engaging Networks; monthly figures count only monthly gifts recorded with an amount on donation pages, so they are not the whole monthly program, and monthly transactions recorded with no amount are left out of the gift count; "same weekdays last year" means 364 days earlier; visits and sources are from GA4, which misses some gifts; an AI assistant prepared this with read-only access, Crescendo computed every figure and ran every query a second time.
 
 WRITING
 - Plain English and short sentences. Every claim has its figure and its dates.
