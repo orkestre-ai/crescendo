@@ -47,7 +47,7 @@ export function getProviderModel(
 }
 
 /**
- * Resolve the provider config for a given AI surface (chat, explore, recs).
+ * Resolve the provider config for a given AI surface (chat, explore, recs, reports).
  * Reads AppSettings, decrypts the relevant API key, and returns a ProviderConfig.
  * Falls back to Anthropic with ANTHROPIC_API_KEY env var per D-02/D-21.
  */
@@ -60,12 +60,15 @@ export async function getProviderConfig(
   // Map surface to the correct DB fields
   const providerField = surface === 'chat' ? 'aiChatProvider'
     : surface === 'explore' ? 'aiExploreProvider'
+    : surface === 'reports' ? 'aiReportsProvider'
     : 'aiRecsProvider';
   const modelField = surface === 'chat' ? 'aiChatModelId'
     : surface === 'explore' ? 'aiExploreModelId'
+    : surface === 'reports' ? 'aiReportsModelId'
     : 'aiRecsModelId';
   const effortField = surface === 'chat' ? 'aiChatEffort'
     : surface === 'explore' ? 'aiExploreEffort'
+    : surface === 'reports' ? 'aiReportsEffort'
     : 'aiRecsEffort';
 
   const provider = (settings[providerField] as ProviderName) || 'anthropic';
@@ -153,6 +156,10 @@ async function resolveApiKey(
  *
  * With a contextCap, Claude models that support it compact (summarize) the
  * conversation server-side once a call's input reaches the cap.
+ *
+ * Reports get effort and prompt caching but never compaction: a summary would
+ * replace exact tool results with prose. The report runner clears old results
+ * itself.
  */
 export function getGenerationOptions(
   config: ProviderConfig,
@@ -162,7 +169,11 @@ export function getGenerationOptions(
   const { provider, modelId, effort } = config;
   const withEffort = supportsEffort(provider, modelId);
   const withCache = provider === 'anthropic' && surface !== 'recs';
-  const withCompaction = contextCap !== undefined && surface !== 'recs' && supportsCompaction(provider, modelId);
+  const withCompaction =
+    contextCap !== undefined &&
+    surface !== 'recs' &&
+    surface !== 'reports' &&
+    supportsCompaction(provider, modelId);
 
   let providerOptions: ProviderOptions | undefined;
   if (provider === 'anthropic' && (withEffort || withCache)) {

@@ -94,6 +94,7 @@ model FundraisingPage {
   recommendations        OptimizationRecommendation[]
   debugJobs              CollectionJob[]  // Jobs targeting this specific page (debug mode)
   fundraisingSnapshots   FundraisingSnapshot[]
+  enDailyGiving          EnDailyGiving[]
   contentSnapshots       ContentSnapshot[]
   insights               PageInsight[]
   conversations          Conversation[]
@@ -374,6 +375,11 @@ model AppSettings {
   aiChatEffort             String    @default("medium")
   aiExploreEffort          String    @default("medium")
   aiRecsEffort             String    @default("low")
+  // Reports: its own model, effort and input cap per call
+  aiReportsProvider        String    @default("anthropic")
+  aiReportsModelId         String    @default("claude-sonnet-5-5")
+  aiReportsEffort          String    @default("medium")
+  aiReportsMaxContext      Int       @default(150000)
 
   // Model lists per provider (JSON: { anthropic: [...], openai: [...], google: [...], ollama: [...] })
   aiModelLists             Json?
@@ -389,6 +395,7 @@ model AppSettings {
 
   // Reporting Configuration
   reportingCurrency   String    @default("CAD")  // USD, CAD, GBP, EUR, AUD
+  organizationName    String?   // Named in reports and in the files they download as
 
   // Timestamps
   createdAt DateTime @default(now())
@@ -460,6 +467,31 @@ model FundraisingSnapshot {
   @@unique([pageId, periodType, periodStart, periodEnd])
   @@index([pageId, periodType])
   @@index([fetchedAt])
+}
+
+/// One day of giving on one page, from the EN Public API summary for that day.
+/// A row of zeros means the day was fetched and nothing came in; a missing
+/// row means the day was never fetched.
+model EnDailyGiving {
+  id        String   @id @default(cuid())
+
+  pageId    String
+  page      FundraisingPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+
+  // In the reporting currency
+  totalAmount       Float
+  donationCount     Int
+  singleAmount      Float
+  singleCount       Int
+  recurringAmount   Float
+  recurringCount    Int
+
+  currency          String
+  fetchedAt         DateTime
+
+  @@unique([pageId, date])
+  @@index([date])
 }
 
 // ============================================================================
@@ -561,4 +593,178 @@ model Message {
   createdAt      DateTime     @default(now())
 
   @@index([conversationId, createdAt])
+}
+
+// ============================================================================
+// REPORTS
+// ============================================================================
+
+enum ReportRunStatus {
+  QUEUED           // Created, loop not started yet
+  RUNNING          // The model is working
+  RECHECKING       // Crescendo is re-running the saved queries
+  COMPLETED        // Finished and rechecked
+  NEEDS_ATTENTION  // The model said it cannot continue
+  STOPPED          // Hit the step or time guard, or the server restarted
+  CANCELLED        // Cancelled by a person
+  FAILED           // An error ended the run
+}
+
+/// A report a person can start: a prompt, its inputs, its tools and its guards
+model ReportDefinition {
+  id           String   @id @default(cuid())
+  key          String   @unique
+  name         String
+  description  String
+  prompt       String   @db.Text
+  inputs       Json     @default("[]")   // Input fields shown as a form at start
+  enabledTools String[]                  // Data tools from the shared registry
+  maxSteps     Int      @default(500)
+  maxMinutes   Int      @default(120)
+  isDefault    Boolean  @default(false)
+  enabled      Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  editedAt     DateTime?                 // Set when a person edits it; a built-in is then no longer updated from code
+  scheduleDailyAt String?                // "HH:MM" in America/Toronto: started once a day after this time. Null: not scheduled
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  runs         ReportRun[]
+
+  @@index([enabled, sortOrder])
+}
+
+/// One run of a report. Kept in full until a person deletes it.
+model ReportRun {
+  id                 String            @id @default(cuid())
+  definitionId       String?
+  definition         ReportDefinition? @relation(fields: [definitionId], references: [id], onDelete: SetNull)
+  definitionSnapshot Json              // Prompt, tools and guards copied at start
+  status             ReportRunStatus   @default(QUEUED)
+  statusReason       String?           @db.Text
+  title              String
+  preparedBy         String?
+  trigger            String            @default("manual") // 'manual' or 'schedule'
+  inputs             Json
+  blocks             Json              @default("[]")
+  warnings           Json              @default("[]")
+  usage              Json?             // { inputTokens, cachedInputTokens, outputTokens, steps }
+  stepCount          Int               @default(0)
+  redactedEmailCount Int               @default(0)
+  cancelRequested    Boolean           @default(false)
+  timeZone           String?           // The GA4 property's time zone
+  currencyCode       String?           // The GA4 property's currency
+  startedAt          DateTime?
+  completedAt        DateTime?
+
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  queries            ReportQuery[]
+  datasets           ReportDataset[]
+  figures            ReportFigure[]
+  events             ReportEvent[]
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+/// A data tool call made during a run, with its full result
+model ReportQuery {
+  id           String    @id @default(cuid())
+  runId        String
+  run          ReportRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  key          String    // "q1", "q2", ... in the order they ran
+  tool         String
+  params       Json
+  result       Json
+  rowCount     Int
+  sampled      Boolean   @default(false)
+  samplingNote String?
+  recheck      Json?     // How the second run compared with the first
+
+  createdAt    DateTime  @default(now())
+
+  @@unique([runId, key])
+}
+
+/// A table computed by Crescendo from saved queries
+model ReportDataset {
+  id        String    @id @default(cuid())
+  runId     String
+  run       ReportRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  key       String
+  label     String
+  spec      Json
+  columns   Json
+  rows      Json
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([runId, key])
+}
+
+/// One figure in the ledger, computed by Crescendo from saved queries
+model ReportFigure {
+  id            String    @id @default(cuid())
+  runId         String
+  run           ReportRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  key           String
+  label         String
+  unit          String    // currency | count | percent | ratio | text
+  value         Float?
+  text          String?   @db.Text
+  display       String
+  source        Json      // cell | aggregate | formula | stated
+  queryKeys     String[]
+  recheckStatus String    @default("unchecked") // unchecked | matched | corrected | stated
+  previousValue Float?
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([runId, key])
+}
+
+/// The activity log of a run: tool calls, notes, warnings and status changes
+model ReportEvent {
+  id        String    @id @default(cuid())
+  runId     String
+  run       ReportRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  seq       Int       // 1, 2, ... within the run
+  type      String
+  message   String    @db.Text
+  data      Json?
+
+  createdAt DateTime  @default(now())
+
+  @@unique([runId, seq])
+}
+
+/// A block a report is built from: the shape of data it accepts, a Liquid
+/// template and its styles. An edit adds a version; old versions are kept so
+/// a report already sent still draws as it did.
+model ReportBlockDef {
+  id             String   @id @default(cuid())
+  key            String
+  version        Int      @default(1)
+  isCurrent      Boolean  @default(true) // The version new reports use
+  name           String
+  description    String   @db.Text
+  dataSchema     Json     // What the block accepts; no number type, only ledger references
+  template       String   @db.Text
+  css            String   @db.Text
+  sampleData     Json     // Example data, with references already resolved
+  origin         String   @default("builtin")  // builtin | builder | imported
+  status         String   @default("approved") // approved | unreviewed | disabled
+  review         Json?    // The critic's scores, for a block the builder made
+  createdByRunId String?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([key, version])
+  @@index([isCurrent, status])
 }

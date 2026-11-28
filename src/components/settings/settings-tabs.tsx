@@ -5,6 +5,7 @@ import { ENConnectionPanel } from './en-connection-panel';
 import { ENPublicPanel } from './en-public-panel';
 import { GA4WizardPanel } from './ga4-wizard-panel';
 import { CurrencyPanel } from './currency-panel';
+import { OrganizationPanel } from './organization-panel';
 import { SyncSettingsPanel } from './sync-settings-panel';
 import { DatabasePanel } from './database-panel';
 import type { SettingsResponse } from '@/types/settings';
@@ -40,6 +41,7 @@ export function SettingsTabs({
         <ENPublicPanel settings={settings} onSettingsUpdate={onSettingsUpdate} />
         <GA4WizardPanel settings={settings} onSettingsUpdate={onSettingsUpdate} />
         <CurrencyPanel settings={settings} onSettingsUpdate={onSettingsUpdate} />
+        <OrganizationPanel settings={settings} onSettingsUpdate={onSettingsUpdate} />
       </TabsContent>
 
       <TabsContent value="sync">

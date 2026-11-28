@@ -3,7 +3,10 @@ import { schedulerLogger } from '@/lib/logging/journeys';
 import { shouldRunScheduledRefresh, updateLastRefresh } from './settings';
 import { jobProcessor } from './jobs';
 import { runCleanup } from './cleanup';
+import { collectEnDaily, torontoDate } from './en-daily';
 import { prisma } from './db';
+import { ensureDefaultReportDefinitions } from './reports/definitions';
+import { startScheduledRuns } from './reports/schedule';
 
 let initialized = false;
 
@@ -79,6 +82,36 @@ export function initScheduler(): void {
     }
   });
 
+  // Daily at 05:00 Toronto: Engaging Networks giving for the last 7 days
+  // through yesterday, so late or refunded gifts are corrected.
+  cron.schedule(
+    '0 5 * * *',
+    async () => {
+      try {
+        const now = new Date();
+        const result = await collectEnDaily({ from: torontoDate(now, 7), to: torontoDate(now, 1) });
+        schedulerLogger.enDailyCompleted({ ...result, errors: result.errors.length });
+      } catch (error) {
+        schedulerLogger.enDailyError(error as Error);
+      }
+    },
+    { timezone: 'America/Toronto' }
+  );
+
+  // Every 10 minutes: start report definitions whose daily time has passed
+  // in Toronto. A busy runner leaves them due for the next tick. Seeding
+  // first means a new built-in is scheduled without anyone opening Reports.
+  cron.schedule('*/10 * * * *', async () => {
+    try {
+      await ensureDefaultReportDefinitions();
+      await startScheduledRuns();
+    } catch (error) {
+      schedulerLogger.reportScheduleError(error as Error);
+    }
+  });
+
   initialized = true;
-  schedulerLogger.initialized('hourly collection, weekly cleanup');
+  schedulerLogger.initialized(
+    'hourly collection, weekly cleanup, daily EN giving, scheduled reports'
+  );
 }

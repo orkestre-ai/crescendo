@@ -43,12 +43,12 @@ function startIdleTimer(): void {
   }, BROWSER_IDLE_TIMEOUT_MS);
 }
 
-function trackScrapeStart(): void {
+export function trackScrapeStart(): void {
   activeScrapeCount++;
   resetIdleTimer();
 }
 
-function trackScrapeEnd(): void {
+export function trackScrapeEnd(): void {
   activeScrapeCount = Math.max(0, activeScrapeCount - 1);
   if (activeScrapeCount === 0) {
     startIdleTimer();
@@ -58,7 +58,7 @@ function trackScrapeEnd(): void {
 // Browser singleton -- reuse across scrapes for performance
 let browserInstance: Browser | null = null;
 
-async function getBrowser(): Promise<Browser> {
+export async function getBrowser(): Promise<Browser> {
   if (!browserInstance || !browserInstance.isConnected()) {
     browserInstance = await chromium.launch({
       headless: true,

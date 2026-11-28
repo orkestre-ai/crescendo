@@ -48,11 +48,15 @@ export function AiModelsPanel({ settings, onSettingsUpdate }: AiModelsPanelProps
   const [recsAssignment, setRecsAssignment] = useState(
     `${settings.providers.recsProvider}:${settings.providers.recsModelId}`
   );
+  const [reportsAssignment, setReportsAssignment] = useState(
+    `${settings.providers.reportsProvider}:${settings.providers.reportsModelId}`
+  );
 
   // Reasoning effort per surface
   const [chatEffort, setChatEffort] = useState<AiEffort>(settings.providers.chatEffort);
   const [exploreEffort, setExploreEffort] = useState<AiEffort>(settings.providers.exploreEffort);
   const [recsEffort, setRecsEffort] = useState<AiEffort>(settings.providers.recsEffort);
+  const [reportsEffort, setReportsEffort] = useState<AiEffort>(settings.providers.reportsEffort);
 
   // AI Limits state
   const [chatMaxContext, setChatMaxContext] = useState(settings.ai.chatMaxContext);
@@ -100,9 +104,12 @@ export function AiModelsPanel({ settings, onSettingsUpdate }: AiModelsPanelProps
     exploreAssignment !==
       `${settings.providers.exploreProvider}:${settings.providers.exploreModelId}` ||
     recsAssignment !== `${settings.providers.recsProvider}:${settings.providers.recsModelId}` ||
+    reportsAssignment !==
+      `${settings.providers.reportsProvider}:${settings.providers.reportsModelId}` ||
     chatEffort !== settings.providers.chatEffort ||
     exploreEffort !== settings.providers.exploreEffort ||
-    recsEffort !== settings.providers.recsEffort;
+    recsEffort !== settings.providers.recsEffort ||
+    reportsEffort !== settings.providers.reportsEffort;
 
   // Save model assignments + model lists + limits via PUT /api/settings
   const handleSave = async () => {
@@ -113,6 +120,7 @@ export function AiModelsPanel({ settings, onSettingsUpdate }: AiModelsPanelProps
       const chat = parseAssignment(chatAssignment);
       const explore = parseAssignment(exploreAssignment);
       const recs = parseAssignment(recsAssignment);
+      const reports = parseAssignment(reportsAssignment);
 
       const response = await fetch('/api/settings', {
         method: 'PUT',
@@ -127,9 +135,12 @@ export function AiModelsPanel({ settings, onSettingsUpdate }: AiModelsPanelProps
           aiExploreModelId: explore.modelId,
           aiRecsProvider: recs.provider,
           aiRecsModelId: recs.modelId,
+          aiReportsProvider: reports.provider,
+          aiReportsModelId: reports.modelId,
           aiChatEffort: chatEffort,
           aiExploreEffort: exploreEffort,
           aiRecsEffort: recsEffort,
+          aiReportsEffort: reportsEffort,
         }),
       });
 
@@ -358,6 +369,34 @@ export function AiModelsPanel({ settings, onSettingsUpdate }: AiModelsPanelProps
             </div>
             <p className="text-xs text-muted-foreground">
               Model used for generating optimization recommendations
+            </p>
+          </div>
+
+          {/* Reports Model */}
+          <div className="space-y-2">
+            <Label htmlFor="reports-assignment">Reports Model</Label>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Select
+                value={reportsAssignment}
+                onValueChange={setReportsAssignment}
+                disabled={!hasAnyProvider}
+              >
+                <SelectTrigger id="reports-assignment" className="w-full">
+                  <SelectValue
+                    placeholder={hasAnyProvider ? 'Select a model' : 'Configure a provider above'}
+                  />
+                </SelectTrigger>
+                <SelectContent>{renderModelOptions()}</SelectContent>
+              </Select>
+              {renderEffortSelect(
+                'reports-effort',
+                reportsAssignment,
+                reportsEffort,
+                setReportsEffort
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Model used for reports, which run in the background and can take an hour or more
             </p>
           </div>
         </CardContent>

@@ -1,18 +1,40 @@
 // Canonical tool mapping: DB key (underscore, matches AI_TOOLS) -> display label
-// Per D-03: the available tools.
+// Per D-03: the available tools, plus the two full GA4 tools.
 // `hidden: true` removes a tool from the UI picker but keeps it in TOOL_KEYS,
 // so zod validation still accepts the key for any pre-existing exploration
 // rows that reference it. Underlying tool registration is unaffected.
+// `optIn: true` keeps a tool in the picker but off until someone ticks it:
+// it is left out of the chat, of seeded explorations and of the picker's
+// default selection.
 export const AVAILABLE_TOOLS: ReadonlyArray<{
   readonly key: string;
   readonly label: string;
   readonly description: string;
   readonly hidden?: boolean;
+  readonly optIn?: boolean;
 }> = [
   {
     key: 'ga4_query',
     label: 'GA4 Query',
     description: 'Query Google Analytics data',
+  },
+  {
+    key: 'ga4_report',
+    label: 'GA4 Report',
+    description: 'Full GA4 reports: filters, sorting, two date ranges, up to 1,000 rows',
+    optIn: true,
+  },
+  {
+    key: 'ga4_funnel',
+    label: 'GA4 Funnel',
+    description: 'Drop-off between steps in a GA4 funnel',
+    optIn: true,
+  },
+  {
+    key: 'en_fundraising',
+    label: 'Engaging Networks giving',
+    description: 'Daily gifts and amounts by page from Engaging Networks, one-time and monthly',
+    optIn: true,
   },
   {
     key: 'org_search',
@@ -49,6 +71,8 @@ export const AVAILABLE_TOOLS: ReadonlyArray<{
 
 export const TOOL_KEYS = AVAILABLE_TOOLS.map((t) => t.key);
 export type ToolKey = (typeof TOOL_KEYS)[number];
+// The tools that are on without anyone choosing them.
+export const DEFAULT_TOOL_KEYS = AVAILABLE_TOOLS.filter((t) => !t.optIn).map((t) => t.key);
 
 // ~15 curated Lucide icons relevant to analytics/fundraising
 export const EXPLORATION_ICONS = [
