@@ -149,7 +149,7 @@ export async function processRecommendationPhase(
             category: rec.category,
             text: rec.text,
             confidence: rec.confidence,
-            modelUsed: 'claude-haiku-4-5-20251001',
+            modelUsed: aiSettings.recsModelId,
             status: 'ACTIVE',
           },
         });

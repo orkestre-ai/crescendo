@@ -61,13 +61,13 @@ export async function POST(request: NextRequest) {
     let model;
     switch (provider) {
       case 'anthropic':
-        model = createAnthropic({ apiKey })('claude-haiku-4-5-20251001');
+        model = createAnthropic({ apiKey })('claude-haiku-5-5');
         break;
       case 'openai':
-        model = createOpenAI({ apiKey })('gpt-4o-mini');
+        model = createOpenAI({ apiKey })('gpt-6-luna');
         break;
       case 'google':
-        model = createGoogleGenerativeAI({ apiKey })('gemini-2.5-flash');
+        model = createGoogleGenerativeAI({ apiKey })('gemini-3.5-flash-lite');
         break;
       default:
         return NextResponse.json({ error: 'Invalid provider' }, { status: 400 });

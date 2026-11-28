@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { EFFORT_LEVELS } from '@/lib/ai/effort';
 import { getSettingsResponse, updateSettings } from '@/lib/settings';
 import { rootLogger } from '@/lib/logging';
 import type { ErrorResponse } from '@/types/settings';
@@ -48,8 +49,8 @@ const updateSettingsSchema = z.object({
     )
     .optional(),
   aiChatModel: z.string().optional(),
-  aiChatMaxContext: z.number().int().min(1000).max(200000).optional(),
-  aiChatMaxTokens: z.number().int().min(256).max(8192).optional(),
+  aiChatMaxContext: z.number().int().min(50000).max(1000000).optional(),
+  aiChatMaxTokens: z.number().int().min(256).max(64000).optional(),
   aiChatSystemPrompt: z.string().nullable().optional(),
   aiOrgSearchDomains: z.array(z.string().regex(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,}$/, 'Invalid domain format')).max(5).optional(),
   reportingCurrency: z.enum(['USD', 'CAD', 'GBP', 'EUR', 'AUD']).optional(),
@@ -64,6 +65,9 @@ const updateSettingsSchema = z.object({
   aiExploreModelId: z.string().optional(),
   aiRecsProvider: z.enum(['anthropic', 'openai', 'google', 'ollama']).optional(),
   aiRecsModelId: z.string().optional(),
+  aiChatEffort: z.enum(EFFORT_LEVELS).optional(),
+  aiExploreEffort: z.enum(EFFORT_LEVELS).optional(),
+  aiRecsEffort: z.enum(EFFORT_LEVELS).optional(),
   aiModelLists: z.object({
     anthropic: z.array(z.object({ id: z.string(), label: z.string(), isDefault: z.boolean() })),
     openai: z.array(z.object({ id: z.string(), label: z.string(), isDefault: z.boolean() })),

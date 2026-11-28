@@ -4,7 +4,14 @@ import { prisma } from '@/lib/db';
 import { getAiSettings, getOrCreateSettings } from '@/lib/settings';
 import { getProfileById } from '@/config/ai-profiles';
 import { getToolInstructions, allTools } from '@/lib/ai/tools';
-import { getProviderConfig, getProviderModel } from '@/lib/ai/providers';
+import {
+  contextFullStop,
+  getGenerationOptions,
+  getProviderConfig,
+  getProviderModel,
+} from '@/lib/ai/providers';
+import { getContextCap, isCompactionPart, supportsCompaction, trimToContext } from '@/lib/ai/context';
+import { withKeepAlive } from '@/lib/ai/keep-alive';
 import { DEFAULT_CHAT_SYSTEM_PROMPT } from '@/config/ai-defaults';
 import { createChatLogger } from '@/lib/logging/journeys';
 
@@ -108,6 +115,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
     const model = getProviderModel(config.provider, config.modelId, config.apiKey, config.baseUrl);
 
+    // Keep each call's input under the Max Context cap. Claude summarizes the
+    // older conversation server-side (compaction); other models drop the
+    // oldest turns here.
+    const contextCap = getContextCap(config, aiSettings.chatMaxContext, aiSettings.chatMaxTokens);
+    let modelMessages = await convertToModelMessages(messages);
+    let droppedMessages = 0;
+    if (!supportsCompaction(config.provider, config.modelId)) {
+      ({ messages: modelMessages, dropped: droppedMessages } = trimToContext(
+        systemPrompt,
+        modelMessages,
+        contextCap
+      ));
+    }
+
     // Create chat journey logger
     const chatLog = createChatLogger(incomingConversationId ?? 'new', id, config.modelId);
     const startTime = Date.now();
@@ -122,12 +143,26 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const result = streamText({
       model,
+      ...getGenerationOptions(config, 'chat', contextCap),
+      maxOutputTokens: aiSettings.chatMaxTokens,
       system: systemPrompt,
-      messages: await convertToModelMessages(messages),
+      messages: modelMessages,
       tools: allTools,
-      stopWhen: stepCountIs(10),
-      onFinish: async ({ text, steps, usage }) => {
+      stopWhen: [stepCountIs(10), contextFullStop(config, aiSettings.chatMaxTokens)],
+      onFinish: async ({ steps, usage }) => {
         try {
+          // A compaction summary comes back as a text part; keep it out of the
+          // reply text and store it so later turns can send it back.
+          const lastStep = steps[steps.length - 1];
+          const text = (lastStep?.content ?? [])
+            .filter((p): p is Extract<typeof p, { type: 'text' }> => p.type === 'text' && !isCompactionPart(p))
+            .map((p) => p.text)
+            .join('');
+          const compaction = steps
+            .flatMap((s) => s.content)
+            .filter((p): p is Extract<typeof p, { type: 'text' }> => isCompactionPart(p))
+            .at(-1)?.text;
+
           // Extract tool calls from steps
           const toolCalls = steps.flatMap((step) =>
             (step.toolCalls || []).map((tc) => ({
@@ -170,6 +205,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
                 conversationId: convId,
                 role: 'assistant',
                 content: text,
+                compaction,
                 toolCalls:
                   toolCalls.length > 0
                     ? JSON.parse(JSON.stringify(toolCalls))
@@ -191,7 +227,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       },
     });
 
-    return result.toUIMessageStreamResponse();
+    // Finish and save the reply even if the browser or a proxy drops the connection
+    result.consumeStream();
+
+    // Tell the client when older turns were left out, so it can say so.
+    return withKeepAlive(
+      result.toUIMessageStreamResponse({
+        messageMetadata: ({ part }) => (part.type === 'start' ? { droppedMessages } : undefined),
+      })
+    );
   } catch (error) {
     const chatLog = createChatLogger('unknown', 'unknown');
     chatLog.error(error instanceof Error ? error.message : 'Unknown error', undefined, error instanceof Error ? error : undefined);
