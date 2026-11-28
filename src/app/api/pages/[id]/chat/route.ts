@@ -11,6 +11,7 @@ import {
   getProviderModel,
 } from '@/lib/ai/providers';
 import { getContextCap, isCompactionPart, supportsCompaction, trimToContext } from '@/lib/ai/context';
+import { withKeepAlive } from '@/lib/ai/keep-alive';
 import { DEFAULT_CHAT_SYSTEM_PROMPT } from '@/config/ai-defaults';
 import { DEFAULT_TOOL_KEYS } from '@/config/exploration-constants';
 import { createChatLogger } from '@/lib/logging/journeys';
@@ -227,10 +228,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       },
     });
 
+    // Finish and save the reply even if the browser or a proxy drops the connection
+    result.consumeStream();
+
     // Tell the client when older turns were left out, so it can say so.
-    return result.toUIMessageStreamResponse({
-      messageMetadata: ({ part }) => (part.type === 'start' ? { droppedMessages } : undefined),
-    });
+    return withKeepAlive(
+      result.toUIMessageStreamResponse({
+        messageMetadata: ({ part }) => (part.type === 'start' ? { droppedMessages } : undefined),
+      })
+    );
   } catch (error) {
     const chatLog = createChatLogger('unknown', 'unknown');
     chatLog.error(error instanceof Error ? error.message : 'Unknown error', undefined, error instanceof Error ? error : undefined);

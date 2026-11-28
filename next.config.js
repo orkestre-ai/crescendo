@@ -44,6 +44,11 @@ const nextConfig = {
       bodySizeLimit: '2mb',
     },
   },
+  // Screenshots saved after startup aren't served from public/ in production;
+  // an afterFiles rewrite only applies when no public file matched.
+  async rewrites() {
+    return [{ source: '/screenshots/:file', destination: '/api/screenshots/:file' }];
+  },
   async headers() {
     return [
       {

@@ -6,10 +6,19 @@ import { getProfileById } from '@/config/ai-profiles';
 import { getToolInstructions, getTools } from '@/lib/ai/tools';
 import { contextFullStop, getGenerationOptions, getProviderConfig, getProviderModel } from '@/lib/ai/providers';
 import { getContextCap, isCompactionPart } from '@/lib/ai/context';
+import { withKeepAlive } from '@/lib/ai/keep-alive';
 import { DEFAULT_EXPLORATION_SYSTEM_PROMPT } from '@/config/ai-defaults';
 import { interpolateTemplate } from '@/lib/prompt-utils';
 import { resolveDynamicVariables } from '@/lib/ai/dynamic-template-variables';
 import { createExplorationLogger } from '@/lib/logging/journeys';
+
+// Explorations run long, whole-site analyses, so they get more room than page chat.
+// Model rounds before the run must stop and write.
+const EXPLORATION_MAX_STEPS = 25;
+// Output per round; thinking counts against it.
+const EXPLORATION_MAX_OUTPUT_TOKENS = 64_000;
+// Context before compaction summarises older tool results.
+const EXPLORATION_MAX_CONTEXT = 400_000;
 
 export async function POST(
   request: NextRequest,
@@ -172,13 +181,16 @@ export async function POST(
       ...getGenerationOptions(
         config,
         'explore',
-        getContextCap(config, aiSettings.chatMaxContext, aiSettings.chatMaxTokens)
+        getContextCap(config, EXPLORATION_MAX_CONTEXT, EXPLORATION_MAX_OUTPUT_TOKENS)
       ),
-      maxOutputTokens: aiSettings.chatMaxTokens,
+      maxOutputTokens: EXPLORATION_MAX_OUTPUT_TOKENS,
       system: systemPrompt,
       messages: await convertToModelMessages([userMessage]),
       tools: getTools(enabledTools),
-      stopWhen: [stepCountIs(10), contextFullStop(config, aiSettings.chatMaxTokens)],
+      stopWhen: [
+        stepCountIs(EXPLORATION_MAX_STEPS),
+        contextFullStop(config, EXPLORATION_MAX_OUTPUT_TOKENS),
+      ],
       onFinish: async ({ steps, usage }) => {
         try {
           // Leave any compaction summary out of the saved response
@@ -225,7 +237,10 @@ export async function POST(
       },
     });
 
-    return result.toUIMessageStreamResponse();
+    // Finish and save the run even if the browser or a proxy drops the connection
+    result.consumeStream();
+
+    return withKeepAlive(result.toUIMessageStreamResponse());
   } catch (error) {
     const exploreLog = createExplorationLogger('unknown', 'unknown');
     exploreLog.error(error instanceof Error ? error.message : 'Unknown error', error instanceof Error ? error : undefined);

@@ -19,6 +19,7 @@ import {
 } from '@/lib/ai-tools/ga4-report';
 import { orgSearchTool } from '@/lib/ai-tools/org-search';
 import { pageContentAuditTool } from '@/lib/ai-tools/page-content-audit';
+import { pageLookupTool } from '@/lib/ai-tools/page-lookup';
 import { pagePerformanceTool } from '@/lib/ai-tools/page-performance';
 import { sitewideCompareTool } from '@/lib/ai-tools/sitewide-compare';
 import { snapshotCompareTool } from '@/lib/ai-tools/snapshot-compare';
@@ -208,6 +209,27 @@ export const pageContentAudit = tool<
   },
 });
 
+export const pageLookup = tool<
+  {
+    enPageIds?: string[];
+  },
+  ToolResult
+>({
+  description:
+    "Look up fundraising pages by their Engaging Networks page number, or list every live page. Returns each page's name, status, Crescendo page ID and Engaging Networks gift totals.",
+  inputSchema: z.object({
+    enPageIds: z
+      .array(z.string())
+      .optional()
+      .describe(
+        'Engaging Networks page numbers, e.g. "193608" from the address /page/193608/donate/1. Leave out to list every live page.'
+      ),
+  }),
+  execute: async (params) => {
+    return await pageLookupTool.execute(params as Record<string, unknown>);
+  },
+});
+
 /**
  * All tools keyed by their tool name.
  */
@@ -218,6 +240,7 @@ export const allTools = {
   ga4_report: ga4Report,
   org_search: orgSearch,
   page_content_audit: pageContentAudit,
+  page_lookup: pageLookup,
   page_performance: pagePerformance,
   sitewide_compare: sitewideCompare,
   snapshot_compare: snapshotCompare,
@@ -244,6 +267,7 @@ const TOOL_SKILLS = {
   ga4_report: ga4ReportTool,
   org_search: orgSearchTool,
   page_content_audit: pageContentAuditTool,
+  page_lookup: pageLookupTool,
   page_performance: pagePerformanceTool,
   sitewide_compare: sitewideCompareTool,
   snapshot_compare: snapshotCompareTool,
